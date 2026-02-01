@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Empire Rider | Bal Nova</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { navy: '#0f172a', amber: '#FFBF00', blue: '#3b82f6', dark: '#020617', red: '#ef4444' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                    animation: {
+                        'radar-ping': 'radar 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+                        'scan-sweep': 'sweep 4s linear infinite',
+                        'glitch': 'glitch 1s linear infinite',
+                    },
+                    keyframes: {
+                        radar: { '75%, 100%': { transform: 'scale(2)', opacity: '0' } },
+                        sweep: { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
+                        glitch: {
+                            '2%, 64%': { transform: 'translate(2px,0) skew(0deg)' },
+                            '4%, 60%': { transform: 'translate(-2px,0) skew(0deg)' },
+                            '62%': { transform: 'translate(0,0) skew(5deg)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #020617; color: #e2e8f0; -webkit-tap-highlight-color: transparent; }
+        .glass-panel { background: rgba(30, 41, 59, 0.98); backdrop-filter: blur(12px); border-top: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        /* Task Cards */
+        .stop-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stop-card.done { opacity: 0.4; filter: grayscale(1); }
+        .stop-card.locked { opacity: 0.5; border: 1px dashed #475569; background: #0f172a; cursor: not-allowed; position: relative; }
+        .stop-card.locked::after { content: 'WAITING FOR ITEM'; position: absolute; top: 50%; right: 10px; transform: translateY(-50%); font-size: 9px; font-weight: bold; color: #64748b; letter-spacing: 1px; }
+        
+        /* Slider */
+        .slider-track { position: relative; width: 100%; height: 60px; background: #0f172a; border-radius: 999px; overflow: hidden; border: 1px solid #334155; }
+        .slider-knob { position: absolute; top: 0; left: 0; height: 100%; width: 70px; background: #22c55e; border-radius: 999px; display: flex; align-items: center; justify-content: center; cursor: grab; z-index: 20; box-shadow: 0 0 15px rgba(34,197,94,0.5); touch-action: none; }
+        .slider-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; text-transform: uppercase; color: rgba(255,255,255,0.3); font-size: 14px; pointer-events: none; letter-spacing: 2px; }
+        
+        /* Ranks & Visuals */
+        .rank-badge-Probation { background: #64748b; color: white; border-color: #94a3b8; }
+        .rank-badge-Verified { background: #0284c7; color: white; border-color: #38bdf8; }
+        .rank-badge-Trusted { background: #16a34a; color: white; border-color: #4ade80; }
+        .rank-badge-Senior { background: #7c3aed; color: white; border-color: #a78bfa; }
+        .rank-badge-Zone { background: #dc2626; color: white; border-color: #fca5a5; }
+        .xp-text.compromised { color: #ef4444; text-decoration: line-through; }
+        .radar-grid { background-image: radial-gradient(rgba(59, 130, 246, 0.2) 1px, transparent 1px); background-size: 40px 40px; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden relative">
+
+    <header class="bg-brand-navy p-4 pb-2 shadow-lg z-20 border-b border-gray-800">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="openProfile()">
+                <div id="rankAvatar" class="w-10 h-10 rounded-full flex items-center justify-center font-black text-xs border-2 relative transition-all">
+                    LVL
+                    <div id="connectionDot" class="absolute bottom-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-brand-navy"></div>
+                </div>
+                <div>
+                    <h1 class="font-bold text-md leading-tight text-white flex items-center gap-2">
+                        Kojo Bolt 
+                        <span id="streakBadge" class="hidden text-[9px] bg-brand-amber text-brand-navy px-1 rounded font-bold"><i class="fa-solid fa-fire"></i> <span id="streakCount">0</span></span>
+                    </h1>
+                    <div class="text-[10px] text-gray-400 font-mono flex items-center gap-2">
+                        <span id="rankTitle">Probation</span>
+                        <span class="text-gray-600">|</span>
+                        <span id="reputationScore" class="text-white">Rep: 100%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                 <button onclick="generateMissionBrief()" class="w-8 h-8 rounded-full bg-brand-blue/20 text-brand-blue border border-brand-blue/50 flex items-center justify-center hover:bg-brand-blue hover:text-white transition-colors" title="AI Mission Intel"><i class="fa-solid fa-brain"></i></button>
+                 <button onclick="document.getElementById('sosModal').classList.remove('hidden')" class="w-8 h-8 rounded-full bg-red-900/50 text-red-500 border border-red-500 flex items-center justify-center hover:bg-red-600 hover:text-white transition-colors"><i class="fa-solid fa-bell"></i></button>
+                 <button onclick="hardReset()" class="w-8 h-8 rounded-full bg-gray-800 text-gray-400 border border-gray-600 flex items-center justify-center hover:text-white"><i class="fa-solid fa-power-off"></i></button>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-12 gap-2 mb-2">
+            <div class="col-span-4 bg-gray-800 rounded-lg p-1.5 border border-gray-700 flex flex-col justify-center">
+                <div class="flex justify-between text-[8px] font-bold text-gray-400 uppercase mb-1">
+                    <span>Vol</span>
+                    <span id="volText" class="text-white">0%</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                    <div id="volBar" class="bg-blue-500 h-full w-0 transition-all duration-500"></div>
+                </div>
+            </div>
+            
+            <div class="col-span-8 bg-gray-800 rounded-lg p-1.5 border border-gray-700 flex justify-between items-center pl-3">
+                <div class="flex flex-col">
+                    <span class="text-[8px] font-bold text-gray-500 uppercase">Pending XP</span>
+                    <div class="flex items-center gap-2">
+                        <span id="pendingXpDisplay" class="text-sm font-mono font-bold text-brand-amber leading-none">0</span>
+                        <div id="complianceIndicator" class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]"></div>
+                    </div>
+                </div>
+                <button onclick="endShift()" class="text-[10px] bg-brand-navy border border-gray-600 px-3 py-1.5 rounded text-white hover:bg-white hover:text-black transition-colors font-bold uppercase tracking-wide">End Shift</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto relative bg-brand-dark" id="mainContainer">
+        
+        <div id="radarView" class="absolute inset-0 flex flex-col items-center justify-center radar-grid">
+            <div class="relative w-64 h-64 flex items-center justify-center mb-8">
+                <div class="absolute inset-0 border border-blue-500/20 rounded-full"></div>
+                <div class="absolute inset-8 border border-blue-500/30 rounded-full"></div>
+                <div class="absolute inset-16 border border-blue-500/40 rounded-full"></div>
+                <div class="absolute inset-0 bg-blue-500/10 rounded-full animate-radar-ping"></div>
+                <div class="absolute inset-0 rounded-full animate-scan-sweep origin-center">
+                    <div class="w-full h-1/2 bg-gradient-to-b from-blue-500/50 to-transparent opacity-20 border-r border-blue-400"></div>
+                </div>
+                <div class="relative z-10 w-16 h-16 bg-brand-navy rounded-full border-2 border-blue-500 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.5)]">
+                    <i class="fa-solid fa-satellite-dish text-2xl text-blue-400"></i>
+                </div>
+            </div>
+            <h2 class="text-xl font-bold text-white tracking-widest animate-pulse">SEARCHING...</h2>
+            <p id="territoryStatus" class="text-xs text-blue-400 font-mono mt-2">ZONE: STABLE</p>
+        </div>
+
+        <div id="taskListView" class="hidden p-4 pb-40 space-y-3"></div>
+    </main>
+
+    <div id="actionPanel" class="fixed bottom-0 left-0 right-0 glass-panel rounded-t-3xl transform transition-transform duration-300 translate-y-full z-40 pb-safe">
+        <div class="p-2 flex justify-center cursor-pointer" onclick="closeActionPanel()">
+            <div class="w-12 h-1.5 bg-gray-600 rounded-full"></div>
+        </div>
+        <div class="p-6 pt-2">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <span id="apType" class="text-[10px] font-bold bg-gray-700 px-2 py-1 rounded uppercase tracking-wider">Type</span>
+                    <h2 id="apTitle" class="text-xl font-bold text-white mt-1 leading-tight">Location</h2>
+                    <p id="apDesc" class="text-sm text-gray-400 mt-1">Desc</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-[10px] text-gray-500 uppercase">Value</div>
+                    <div id="apXp" class="text-xl font-mono font-bold text-brand-amber">+50 XP</div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-4 gap-2 mb-4">
+                 <button onclick="openMsgModal()" class="col-span-2 bg-brand-blue/20 border border-brand-blue/50 text-blue-400 p-3 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-brand-blue hover:text-white transition-colors">
+                    <i class="fa-solid fa-comment-dots"></i>
+                    <span class="text-[10px] font-bold">Comms</span>
+                </button>
+                <button onclick="openReportModal('fail')" class="col-span-1 bg-gray-800 border border-gray-700 text-gray-400 p-3 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-red-500 hover:text-red-500 transition-colors">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span class="text-[10px] font-bold">Fail</span>
+                </button>
+                <button onclick="openReportModal('mismatch')" class="col-span-1 bg-gray-800 border border-gray-700 text-gray-400 p-3 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-yellow-500 hover:text-yellow-500 transition-colors">
+                    <i class="fa-solid fa-scale-unbalanced"></i>
+                    <span class="text-[10px] font-bold">Size</span>
+                </button>
+            </div>
+
+            <div id="complianceSection" class="mb-4 space-y-2">
+                <div id="qcCheckDiv" class="hidden">
+                    <label class="flex items-center gap-3 p-3 bg-gray-900 border border-gray-700 rounded-xl cursor-pointer hover:border-brand-amber transition-colors">
+                        <input type="checkbox" id="qcCheckbox" class="w-5 h-5 accent-brand-amber rounded">
+                        <div class="flex-1">
+                            <div class="text-sm font-bold text-white">QC Check Verified</div>
+                            <div class="text-[10px] text-gray-500">Packaging intact, label matches.</div>
+                        </div>
+                    </label>
+                </div>
+
+                <button id="btnCam" onclick="simulateCamera()" class="w-full hidden bg-gray-800 border border-gray-700 text-brand-amber p-4 rounded-xl items-center justify-center gap-2 hover:bg-gray-700 transition-colors">
+                    <i class="fa-solid fa-camera"></i> <span class="font-bold">Take Proof Photo</span>
+                </button>
+            </div>
+
+            <div id="slideContainer" class="slider-track opacity-50 pointer-events-none transition-opacity">
+                <div id="slideKnob" class="slider-knob">
+                    <i class="fa-solid fa-chevron-right text-brand-navy font-black text-xl"></i>
+                </div>
+                <div class="slider-text">
+                    <span id="slideText">Slide to Complete</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="profileModal" class="fixed inset-0 z-[60] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="bg-gray-900 w-full max-w-sm rounded-2xl border border-gray-700 overflow-hidden">
+            <div class="bg-brand-navy p-6 border-b border-gray-800">
+                <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center border-2 border-white text-2xl font-black" id="modalAvatar">R1</div>
+                        <div>
+                            <h2 class="text-xl font-bold text-white">Kojo Bolt</h2>
+                            <div class="text-xs text-brand-amber font-mono mt-1" id="modalRank">PROBATION</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[10px] text-gray-500 uppercase">Total XP</div>
+                        <div class="text-xl font-mono font-bold text-white" id="totalXpVal">0</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <div class="grid grid-cols-3 gap-3 text-center">
+                    <div class="bg-gray-800 p-3 rounded-xl border border-gray-700">
+                        <div class="text-2xl font-bold text-brand-amber" id="modalStreak">0</div>
+                        <div class="text-[9px] text-gray-500 uppercase mt-1">Streak</div>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded-xl border border-gray-700">
+                        <div class="text-2xl font-bold text-white" id="modalRep">100%</div>
+                        <div class="text-[9px] text-gray-500 uppercase mt-1">Reputation</div>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded-xl border border-gray-700">
+                        <div class="text-2xl font-bold text-red-500" id="modalStrikes">0</div>
+                        <div class="text-[9px] text-gray-500 uppercase mt-1">Strikes</div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-3 border-b border-gray-800 pb-1">Daily Compliance Checklist</h3>
+                    <div class="space-y-2 text-sm" id="complianceList"></div>
+                </div>
+                
+                <button onclick="document.getElementById('profileModal').classList.add('hidden')" class="w-full py-3 bg-gray-800 text-gray-300 rounded-xl font-bold hover:bg-gray-700">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="endShiftModal" class="fixed inset-0 z-[100] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="bg-gray-900 w-full max-w-sm rounded-2xl border-2 p-6 text-center" id="endShiftCard">
+            <div id="endShiftIcon" class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl mb-4 bg-gray-800 text-gray-500">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2 id="endShiftTitle" class="text-2xl font-black text-white uppercase italic mb-2">Shift Ended</h2>
+            <p id="endShiftMsg" class="text-gray-400 text-sm mb-6">Calculating compliance...</p>
+            
+            <div class="bg-black rounded-xl p-4 mb-6 border border-gray-800">
+                <div class="flex justify-between text-sm mb-2">
+                    <span class="text-gray-500">Pending XP</span>
+                    <span class="text-white font-mono" id="summaryPending">0</span>
+                </div>
+                <div class="flex justify-between text-sm mb-2">
+                    <span class="text-gray-500">Compliance</span>
+                    <span class="font-mono font-bold" id="summaryComp">0%</span>
+                </div>
+                <div class="h-px bg-gray-800 my-2"></div>
+                <div class="flex justify-between text-lg font-bold">
+                    <span class="text-brand-amber">XP RELEASED</span>
+                    <span class="text-brand-amber font-mono" id="summaryReleased">0</span>
+                </div>
+            </div>
+
+            <button onclick="closeEndShift()" class="w-full py-3 bg-brand-blue text-white rounded-xl font-bold shadow-lg">ACKNOWLEDGE</button>
+        </div>
+    </div>
+
+    <div id="intelModal" class="fixed inset-0 z-[80] bg-black/90 hidden flex items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-gray-900 border border-brand-blue w-full max-w-sm rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-brand-blue animate-pulse"></div>
+            <h3 class="text-xl font-black text-white mb-2 uppercase italic flex items-center gap-2"><i class="fa-solid fa-brain"></i> Mission Intel</h3>
+            <div id="intelContent" class="text-sm text-blue-200 font-mono leading-relaxed mb-6 min-h-[50px] max-h-60 overflow-y-auto"></div>
+            <button onclick="document.getElementById('intelModal').classList.add('hidden')" class="w-full py-3 bg-brand-blue/20 border border-brand-blue text-blue-400 font-bold rounded-xl hover:bg-brand-blue hover:text-white transition-colors">CLOSE INTEL</button>
+        </div>
+    </div>
+
+    <div id="vacuumModal" class="fixed inset-0 z-[70] bg-black/90 hidden flex flex-col items-center justify-center p-6 backdrop-blur-sm">
+        <div class="w-full max-w-sm bg-brand-navy border-2 border-brand-amber rounded-3xl p-6 text-center shadow-[0_0_50px_rgba(255,191,0,0.4)] relative overflow-hidden">
+            <div class="absolute top-0 left-0 h-1 bg-brand-amber w-full animate-pulse"></div>
+            <div class="w-20 h-20 mx-auto bg-brand-amber/20 rounded-full flex items-center justify-center mb-4 animate-bounce">
+                <i class="fa-solid fa-bolt text-4xl text-brand-amber"></i>
+            </div>
+            <h2 class="text-2xl font-black text-white italic mb-1 uppercase">Vacuum Offer</h2>
+            <p class="text-gray-400 text-xs mb-6 font-mono">NEW JOB INTERCEPTED</p>
+            <div class="flex gap-3 mt-4">
+                <button onclick="declineVacuum()" class="flex-1 py-4 bg-gray-700 text-white font-bold rounded-xl text-sm hover:bg-gray-600">DECLINE</button>
+                <button onclick="acceptVacuum()" class="flex-1 py-4 bg-brand-amber text-brand-navy font-black rounded-xl shadow-lg text-sm hover:bg-yellow-400">ACCEPT</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="msgModal" class="fixed inset-0 z-[60] bg-black/90 hidden flex items-end sm:items-center justify-center p-4">
+        <div class="bg-gray-900 w-full max-w-sm rounded-2xl p-6 border-t border-brand-amber">
+            <h3 class="font-bold text-white mb-4">Comms Link</h3>
+            <div class="space-y-2 mb-4" id="msgList"></div>
+            <div class="border-t border-gray-700 pt-4">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-[10px] text-brand-amber font-bold uppercase"><i class="fa-solid fa-wand-magic-sparkles"></i> Smart Compose</label>
+                    <select id="aiLangSelect" class="bg-black border border-gray-700 rounded p-1 text-[10px] text-white">
+                        <option value="English">English</option>
+                        <option value="Twi">Twi</option>
+                        <option value="Ga">Ga</option>
+                        <option value="Pidgin">Pidgin</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="aiMsgInput" placeholder="e.g. flat tire" class="flex-1 bg-black border border-gray-700 rounded-lg p-3 text-white text-sm">
+                    <button onclick="draftSmartMessage()" class="bg-brand-amber text-brand-navy px-4 rounded-lg font-bold"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+                <div id="aiMsgResult" class="hidden mt-2 p-3 bg-gray-800 rounded-lg text-xs text-gray-300 cursor-pointer border border-green-500" onclick="sendAiMessage(this.innerText)"></div>
+            </div>
+            <button onclick="document.getElementById('msgModal').classList.add('hidden')" class="w-full mt-4 py-3 bg-gray-800 rounded-xl text-gray-400 font-bold">Cancel</button>
+        </div>
+    </div>
+
+    <div id="reportModal" class="fixed inset-0 z-[60] bg-black/90 hidden flex items-center justify-center p-4">
+    <div class="bg-gray-900 w-full max-w-sm rounded-2xl p-6 border border-gray-700">
+        <h3 id="reportTitle" class="font-bold text-lg text-white mb-4">Report Issue</h3>
+        
+        <div id="reportOptions" class="space-y-2 mb-4 hidden">
+            <p class="text-xs text-gray-400 mb-2">Select actual size observed:</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="selectMismatchSize(15)" class="p-3 bg-gray-800 border border-gray-600 rounded-lg text-xs font-bold text-white hover:bg-brand-blue hover:border-brand-blue transition">📦 Medium (Shoe)</button>
+                <button onclick="selectMismatchSize(30)" class="p-3 bg-gray-800 border border-gray-600 rounded-lg text-xs font-bold text-white hover:bg-brand-blue hover:border-brand-blue transition">🥡 Large (Microwave)</button>
+                <button onclick="selectMismatchSize(50)" class="p-3 bg-gray-800 border border-gray-600 rounded-lg text-xs font-bold text-white hover:bg-brand-blue hover:border-brand-blue transition">📺 Bulky (TV/Monitor)</button>
+                <button onclick="selectMismatchSize(100)" class="p-3 bg-red-900/30 border border-red-800 rounded-lg text-xs font-bold text-red-400 hover:bg-red-900/50 transition">⛔ Oversize (Reject)</button>
+            </div>
+        </div>
+
+        <input type="text" id="reportNote" placeholder="Additional details..." class="w-full bg-black border border-gray-700 rounded p-3 text-white mb-4 outline-none text-sm">
+        
+        <div class="flex gap-3">
+            <button onclick="document.getElementById('reportModal').classList.add('hidden')" class="flex-1 py-3 bg-gray-800 text-gray-300 rounded-xl font-bold">Cancel</button>
+            <button id="btnSubmitReport" onclick="submitReport()" class="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">Submit Flag</button>
+        </div>
+    </div>
+    </div>
+
+    <div id="sosModal" class="fixed inset-0 z-[100] bg-red-900/90 hidden flex items-center justify-center p-6 text-center backdrop-blur-sm">
+        <div class="bg-black p-6 rounded-2xl border-4 border-red-500 w-full max-w-sm shadow-2xl">
+            <i class="fa-solid fa-truck-medical text-5xl text-red-500 mb-4 animate-bounce"></i>
+            <h2 class="text-3xl text-white font-black mb-2 uppercase tracking-widest">Emergency</h2>
+            <div class="grid grid-cols-2 gap-3 mb-4 mt-6">
+                <button onclick="sendSOS('Accident')" class="p-3 bg-gray-900 border border-red-900 rounded-xl text-white">Accident</button>
+                <button onclick="sendSOS('Medical')" class="p-3 bg-gray-900 border border-red-900 rounded-xl text-white">Medical</button>
+            </div>
+            <button onclick="document.getElementById('sosModal').classList.add('hidden')" class="w-full py-3 bg-gray-800 rounded-xl text-gray-400 font-bold">CANCEL</button>
+        </div>
+    </div>
+    
+    <div id="apiModal" class="fixed inset-0 z-[120] bg-black/90 hidden flex items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-gray-900 border border-brand-amber w-full max-w-xs rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-2">Neural Link Required</h3>
+            <p class="text-xs text-gray-400 mb-4">Enter Gemini API Key to enable AI features.</p>
+            <input type="password" id="apiKeyField" class="w-full bg-black border border-gray-700 rounded p-2 text-white mb-4 outline-none focus:border-brand-amber">
+            <button onclick="saveApiAndContinue()" class="w-full py-2 bg-brand-amber text-brand-navy rounded-lg font-bold">Activate</button>
+        </div>
+    </div>
+
+    <div id="alertModal" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-gray-900 border border-brand-blue w-full max-w-xs rounded-2xl p-6 shadow-2xl text-center">
+            <h3 class="text-lg font-bold text-white mb-2">System Notice</h3>
+            <p id="alertMessage" class="text-sm text-gray-400 mb-6"></p>
+            <button onclick="document.getElementById('alertModal').classList.add('hidden')" class="w-full py-2 bg-brand-blue text-white rounded-lg font-bold">OK</button>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-gray-900 border border-gray-700 w-full max-w-xs rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-2">Confirm Action</h3>
+            <p id="confirmMessage" class="text-sm text-gray-400 mb-6"></p>
+            <div class="flex gap-3">
+                <button id="confirmCancelBtn" class="flex-1 py-2 bg-gray-800 text-gray-300 rounded-lg font-bold">Cancel</button>
+                <button id="confirmYesBtn" class="flex-1 py-2 bg-brand-blue text-white rounded-lg font-bold">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS & CONFIG ---
+        const RIDER_ID = 1; 
+        const DISPATCH_KEY = 'balnova_dispatch';
+        const RIDER_KEY = 'balnova_rider_v3'; 
+        const RIDER_PROGRESS_KEY = 'balnova_rider_progress';
+        const SHARED_RIDERS_KEY = 'balnova_riders';
+        let apiKey = localStorage.getItem('gemini_api_key') || "";
+        
+        // Ranks Config
+        const RANKS = [
+            { id: 0, name: 'Probation', minXP: 0, color: '#64748b', class: 'rank-badge-Probation' },
+            { id: 1, name: 'Verified', minXP: 1000, color: '#0284c7', class: 'rank-badge-Verified' },
+            { id: 2, name: 'Trusted', minXP: 5000, color: '#16a34a', class: 'rank-badge-Trusted' },
+            { id: 3, name: 'Senior', minXP: 15000, color: '#7c3aed', class: 'rank-badge-Senior' },
+            { id: 4, name: 'Zone Authority', minXP: 50000, color: '#dc2626', class: 'rank-badge-Zone' }
+        ];
+
+        // --- STATE MANAGEMENT ---
+        let riderState = {
+            xp: 0,
+            pendingXp: 0, 
+            pendingCash: 0,
+            cashDebt: 0,
+            dailyXpEarned: 0,
+            streak: 0,
+            strikes: 0,
+            reputation: 100, 
+            currentVol: 0,
+            tasks: [],
+            lastKnownLocation: "Spintex Hub",
+            compliance: {
+                qcCheck: true, 
+                pickupScan: true,
+                route: true,
+                pod: true,
+                noFlags: true,
+                dayCompromised: false 
+            }
+        };
+        
+        let activeTaskIndex = null;
+        let sliderCleanup = null;
+        let pendingVacuumStops = [];
+        let pendingVacuumVol = 0;
+
+        // --- INITIALIZATION ---
+        function init() {
+            registerRider(); // Ensure we exist in Admin DB
+            loadState();
+            renderHeader();
+            renderList();
+            
+            // Core Sync Loop
+            setInterval(() => {
+                checkForMissions();
+                updateConnectionStatus();
+                syncToAdmin(); // Heartbeat & Progress update
+            }, 1500);
+        }
+
+        // --- SYNC ENGINE (NEW) ---
+        function registerRider() {
+            let allRiders = JSON.parse(localStorage.getItem(SHARED_RIDERS_KEY)) || [];
+            if (!allRiders.find(r => r.id === RIDER_ID)) {
+                allRiders.push({ id: RIDER_ID, name: "Kojo Bolt", score: 95, trips: 0, status: 'Idle', lastLocation: 'Spintex Hub' });
+                localStorage.setItem(SHARED_RIDERS_KEY, JSON.stringify(allRiders));
+            }
+        }
+
+// --- FIXED SYNC (Sends Correct Financial Data) ---
+        function syncToAdmin() {
+            localStorage.setItem('balnova_rider_heartbeat', Date.now());
+
+            const status = riderState.tasks.length > 0 ? 'Busy' : 'Idle';
+            const stickyCount = riderState.tasks.filter(t => t.isSticky).length;
+
+            const progress = {
+                riderId: RIDER_ID,
+                riderStatus: status,
+                currentVol: riderState.currentVol,
+                stops: riderState.tasks,
+                
+                // CRITICAL FIX: Send CASH to Admin, not XP
+                currentRev: riderState.pendingCash, 
+                
+                // Send XP separately (optional for future gamification features)
+                currentXp: riderState.pendingXp,
+                
+                stickyCount: stickyCount,
+                timestamp: Date.now()
+            };
+            
+            localStorage.setItem(RIDER_PROGRESS_KEY, JSON.stringify(progress));
+            
+            // Shared DB Sync
+            let allRiders = JSON.parse(localStorage.getItem(SHARED_RIDERS_KEY)) || [];
+            const idx = allRiders.findIndex(r => r.id === RIDER_ID);
+            if(idx !== -1) {
+                allRiders[idx].status = status;
+                allRiders[idx].lastLocation = riderState.lastKnownLocation;
+                if (allRiders[idx].cashLiability !== undefined) {
+                     riderState.cashDebt = allRiders[idx].cashLiability;
+                }
+                localStorage.setItem(SHARED_RIDERS_KEY, JSON.stringify(allRiders));
+            }
+            
+            // UI Update: Show Cash vs XP based on state
+            const debtEl = document.getElementById('pendingXpDisplay');
+            if(debtEl) {
+                if (riderState.tasks.length === 0) {
+                    // Idle: Show Total Debt
+                    debtEl.innerText = `-${riderState.cashDebt.toFixed(0)}`;
+                    debtEl.className = riderState.cashDebt > 5000 ? 'text-red-500 font-bold' : 'text-brand-amber font-bold';
+                } else {
+                    // Busy: Show Cash Collected this Run
+                    debtEl.innerText = `💵 ${riderState.pendingCash.toFixed(2)}`;
+                    debtEl.className = 'text-green-400 font-mono font-bold';
+                }
+            }
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem(RIDER_KEY);
+            if (saved) {
+                riderState = { ...riderState, ...JSON.parse(saved) };
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem(RIDER_KEY, JSON.stringify(riderState));
+            renderHeader();
+            syncToAdmin(); // Push changes immediately
+        }
+
+        // --- CORE: SMART MERGING & VACUUM ---
+function checkForMissions() {
+    const rawDispatch = localStorage.getItem(DISPATCH_KEY);
+    if (!rawDispatch) return;
+    const mission = JSON.parse(rawDispatch);
+    if (riderState.tasks.length === 0 && riderState.cashDebt > 10000) {
+        // Visual warning
+        document.getElementById('radarView').innerHTML = `
+            <div class="text-center p-6">
+                <i class="fa-solid fa-lock text-5xl text-red-500 mb-4 animate-bounce"></i>
+                <h2 class="text-2xl font-black text-white">ACCOUNT LOCKED</h2>
+                <p class="text-sm text-gray-400 mb-6">Cash Limit Exceeded (GHS ${riderState.cashDebt})</p>
+                <button onclick="showAlertModal('Go to MoMo Agent to Remit')" class="bg-red-600 text-white px-6 py-3 rounded-xl font-bold">REMIT CASH NOW</button>
+            </div>
+        `;
+        return; 
+    }
+    if (mission.riderId === RIDER_ID) {
+        // Ignore signals we have already processed
+        if (mission.startedAt <= lastDispatchTime) return;
+        lastDispatchTime = mission.startedAt;
+
+        // 1. VACUUM OFFER: High Priority Choice (Requires Modal)
+        if (mission.isVacuum) {
+            pendingVacuumStops = mission.stops;
+            pendingVacuumVol = mission.currentVol;
+            // Only show modal if we aren't already processing this specific offer
+            if(document.getElementById('vacuumModal').classList.contains('hidden')) {
+                document.getElementById('vacuumModal').classList.remove('hidden');
+            }
+            return;
+        }
+
+        const newStops = mission.stops.filter(incoming => {
+    // Check if task ID already exists in rider's local state
+    return !riderState.tasks.some(existing => existing.id === incoming.id);
+});
+
+        if (newStops.length > 0) {
+            // THE FIX: Merge new stops into the existing array using spread syntax (...)
+            riderState.tasks = [...riderState.tasks, ...newStops]; 
+            
+            // Recalculate volume based on new total load
+            if (mission.currentVol) riderState.currentVol = Math.max(riderState.currentVol, mission.currentVol);
+            else recalcVolume();
+            
+            saveState();
+            renderList();
+            showAlertModal("ORDERS UPDATED. NEW STOPS ADDED.");
+        }
+    }
+}
+
+        // --- LOGIC: BACKPACK RULE ---
+        function isLocked(t) {
+            if (t.type === 'drop') {
+                const relatedPickup = riderState.tasks.find(p => p.type === 'pickup' && p.note === t.note);
+                if(relatedPickup && relatedPickup.status !== 'done') return true;
+            }
+            return false;
+        }
+
+        function recalcVolume() {
+            let vol = 0;
+            const pickups = riderState.tasks.filter(t => t.type === 'pickup' && t.status === 'done');
+            pickups.forEach(p => {
+                const drop = riderState.tasks.find(d => d.type === 'drop' && d.note === p.note && d.status === 'done');
+                if(!drop) vol += (p.volume || 15); 
+            });
+            riderState.currentVol = vol;
+        }
+
+        // --- UI RENDERING ---
+        function renderHeader() {
+            const currentRank = RANKS.slice().reverse().find(r => riderState.xp >= r.minXP) || RANKS[0];
+            
+            // Rank & Avatar
+            const avatar = document.getElementById('rankAvatar');
+            avatar.className = `w-10 h-10 rounded-full flex items-center justify-center font-black text-xs border-2 relative transition-all ${currentRank.class}`;
+            document.getElementById('rankTitle').innerText = currentRank.name;
+            document.getElementById('rankTitle').style.color = currentRank.color;
+            
+            // Streak
+            if (riderState.streak > 0) {
+                document.getElementById('streakBadge').classList.remove('hidden');
+                document.getElementById('streakCount').innerText = riderState.streak;
+            } else {
+                document.getElementById('streakBadge').classList.add('hidden');
+            }
+
+            // Rep & XP
+            document.getElementById('reputationScore').innerText = `Rep: ${riderState.reputation}%`;
+const debtEl = document.getElementById('pendingXpDisplay');
+// Reuse the pending XP slot for Cash Debt if idle, or show mission earnings if busy
+if (riderState.tasks.length === 0) {
+    // Idle Mode: Show Total Debt
+    debtEl.innerText = `-${riderState.cashDebt.toFixed(0)}`;
+    debtEl.classList.toggle('text-red-500', riderState.cashDebt > 5000);
+    debtEl.classList.toggle('text-brand-amber', riderState.cashDebt <= 5000);
+} else {
+    // Busy Mode: Show Current Run Earnings
+    debtEl.innerText = `+${riderState.pendingXp}`;
+    debtEl.classList.remove('text-red-500');
+    debtEl.classList.add('text-brand-amber');
+}            
+            // Compliance Indicator
+            const compInd = document.getElementById('complianceIndicator');
+            const xpTxt = document.getElementById('pendingXpDisplay');
+            if (riderState.compliance.dayCompromised) {
+                xpTxt.classList.add('compromised');
+                compInd.className = "w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse";
+            } else {
+                xpTxt.classList.remove('compromised');
+                compInd.className = "w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]";
+            }
+
+            // Volume Bar
+            const pct = Math.min(100, riderState.currentVol);
+            document.getElementById('volText').innerText = `${pct}%`;
+            document.getElementById('volBar').style.width = `${pct}%`;
+            document.getElementById('volBar').className = pct > 80 ? "bg-red-500 h-full w-0 transition-all" : "bg-blue-500 h-full w-0 transition-all";
+        }
+
+        function renderList() {
+            const list = document.getElementById('taskListView');
+            list.innerHTML = '';
+            
+            const activeTasks = riderState.tasks.filter(t => t.status !== 'done');
+            
+            if (riderState.tasks.length > 0 && activeTasks.length === 0) {
+                 document.getElementById('radarView').classList.remove('hidden');
+                 document.getElementById('taskListView').classList.add('hidden');
+                 return;
+            }
+            
+            if (riderState.tasks.length === 0) {
+                document.getElementById('radarView').classList.remove('hidden');
+                document.getElementById('taskListView').classList.add('hidden');
+                return;
+            }
+            
+            document.getElementById('radarView').classList.add('hidden');
+            document.getElementById('taskListView').classList.remove('hidden');
+
+            riderState.tasks.forEach((t, idx) => {
+                const locked = isLocked(t);
+                let statusColor = '';
+                let icon = t.type === 'pickup' ? 'fa-box' : 'fa-house';
+                let iconColor = t.type === 'pickup' ? 'text-brand-amber' : 'text-blue-400';
+                
+                if (t.status === 'done') statusColor = 'done';
+                else if (locked) statusColor = 'locked';
+
+                let clickAction = (t.status !== 'done' && !locked) ? `onclick="openTask(${idx})"` : '';
+                
+                let html = `
+                <div ${clickAction} class="stop-card bg-gray-800 p-4 rounded-xl flex items-center gap-4 mb-2 border border-gray-700 hover:bg-gray-750 cursor-pointer ${statusColor}">
+                    <div class="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
+                        <i class="fa-solid ${t.status === 'done' ? 'fa-check text-green-500' : icon + ' ' + iconColor}"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between">
+                            <span class="text-[10px] font-bold uppercase text-gray-400">${t.type}</span>
+                        </div>
+                        <h3 class="font-bold text-white">${t.loc}</h3>
+                        <p class="text-xs text-gray-500">${t.note || 'Standard Delivery'}</p>
+                    </div>
+                    ${locked ? '<i class="fa-solid fa-lock text-gray-500"></i>' : ''}
+                </div>`;
+                list.innerHTML += html;
+            });
+        }
+
+        function openTask(idx) {
+            if(riderState.strikes >= 5) { showAlertModal("ACCOUNT SUSPENDED."); return; }
+            
+            activeTaskIndex = idx;
+            const t = riderState.tasks[idx];
+            
+            document.getElementById('apType').innerText = t.type;
+            document.getElementById('apTitle').innerText = t.loc;
+            document.getElementById('apDesc').innerText = t.note;
+            document.getElementById('apXp').innerText = "+50 XP"; 
+            
+            // UI Reset
+            const qcDiv = document.getElementById('qcCheckDiv');
+            const camBtn = document.getElementById('btnCam');
+            const slider = document.getElementById('slideContainer');
+            document.getElementById('qcCheckbox').checked = false;
+            qcDiv.classList.add('hidden');
+            camBtn.classList.add('hidden');
+            slider.style.opacity = '0.5';
+            slider.style.pointerEvents = 'none';
+
+            if (t.type === 'pickup') {
+                qcDiv.classList.remove('hidden');
+                document.getElementById('slideText').innerText = "SLIDE TO PICKUP";
+                document.getElementById('qcCheckbox').onchange = (e) => {
+                    if(e.target.checked) {
+                        slider.style.opacity = '1';
+                        slider.style.pointerEvents = 'auto';
+                    } else {
+                        slider.style.opacity = '0.5';
+                        slider.style.pointerEvents = 'none';
+                    }
+                }
+            } else {
+                camBtn.classList.remove('hidden');
+                camBtn.innerHTML = '<i class="fa-solid fa-camera"></i> <span class="font-bold">Take Proof Photo</span>';
+                camBtn.className = "w-full bg-gray-800 border border-gray-700 text-brand-amber p-4 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors";
+                document.getElementById('slideText').innerText = "SLIDE TO DROP";
+            }
+
+            document.getElementById('actionPanel').classList.remove('translate-y-full');
+            initSlider();
+        }
+
+        // --- COMPLETION & AUTO-ADVANCE ---
+        // --- FIXED COMPLETION LOGIC (Separates Money & XP) ---
+function completeTask() {
+    const t = riderState.tasks[activeTaskIndex];
+    t.status = 'done';
+    riderState.lastKnownLocation = t.loc; 
+    
+    // A. XP (Gamification)
+    const xpGain = 50; 
+    riderState.pendingXp += xpGain; 
+    
+    // B. Cash (Financial Liability)
+    // If the task implies cash collection (e.g. Dropoff with COD), add it.
+    // Default to 25.00 GHS if revenue is missing but it's a 'drop'.
+    let cashCollected = 0;
+    if (t.type === 'drop') {
+        cashCollected = parseFloat(t.revenue) || 25.00; 
+    }
+    riderState.pendingCash += cashCollected;
+
+    // Visual Feedback
+    showAlertModal(`✅ COMPLETED!\n+${xpGain} XP\n+ GHS ${cashCollected.toFixed(2)} Cash`);
+    
+    if(t.type === 'pickup') {
+        if(!document.getElementById('qcCheckbox').checked) failCompliance('qcCheck');
+    }
+    
+    recalcVolume(); 
+    saveState(); 
+    closeActionPanel();
+    renderList();
+
+    // Auto-Advance Logic
+    setTimeout(() => {
+        let nextIdx = riderState.tasks.findIndex(task => task.status !== 'done' && task.loc === riderState.lastKnownLocation && !isLocked(task));
+        if (nextIdx === -1) {
+            nextIdx = riderState.tasks.findIndex(task => task.status !== 'done' && !isLocked(task));
+        }
+
+        if (nextIdx !== -1) {
+            openTask(nextIdx);
+        } else {
+            if(riderState.tasks.every(task => task.status === 'done')) {
+                 // End of Mission
+                 const summaryReleased = document.getElementById('summaryReleased');
+                 if(summaryReleased) {
+                     summaryReleased.innerText = `XP: ${riderState.pendingXp} | Cash: GHS ${riderState.pendingCash.toFixed(2)}`;
+                     summaryReleased.className = "text-white font-mono text-xs font-bold";
+                 }
+                 
+                 document.getElementById('endShiftModal').classList.remove('hidden');
+                 
+                 setTimeout(() => {
+                     riderState.tasks = []; 
+                     saveState(); 
+                     renderList();
+                 }, 1000);
+            }
+        }
+    }, 600);
+}
+
+        // --- GEMINI AI FUNCTIONS ---
+        async function callGemini(prompt) {
+            if (!apiKey) {
+                document.getElementById('apiModal').classList.remove('hidden');
+                return null;
+            }
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) 
+                });
+                if(!r.ok) throw new Error("API Error");
+                const d = await r.json();
+                return d.candidates[0].content.parts[0].text;
+            } catch(e) { 
+                showAlertModal("Neural Link Offline."); 
+                return null;
+            }
+        }
+
+        async function generateMissionBrief() {
+            if(riderState.tasks.length === 0) return showAlertModal("No active mission.");
+            document.getElementById('intelContent').innerHTML = '<div class="animate-pulse text-brand-blue">Connecting to Satellite...</div>';
+            document.getElementById('intelModal').classList.remove('hidden');
+            
+            const summary = riderState.tasks.map(t => `${t.type} at ${t.loc}`).join(', ');
+            const prompt = `You are a futuristic nav AI. Brief the rider on: ${summary}. Keep it tactical and short (2 sentences).`;
+            const response = await callGemini(prompt);
+            if(response) document.getElementById('intelContent').innerHTML = marked.parse(response);
+        }
+
+        async function draftSmartMessage() {
+            const input = document.getElementById('aiMsgInput');
+            const lang = document.getElementById('aiLangSelect').value;
+            const res = document.getElementById('aiMsgResult');
+            
+            if(!input.value) return;
+            input.disabled = true;
+            res.classList.remove('hidden');
+            res.innerText = "Drafting...";
+            
+            const prompt = `Rewrite this rider message to be professional in ${lang}: "${input.value}"`;
+            const response = await callGemini(prompt);
+            
+            input.disabled = false;
+            if(response) res.innerText = response.trim();
+        }
+
+        function saveApiAndContinue() {
+            const k = document.getElementById('apiKeyField').value;
+            if(k) {
+                localStorage.setItem('gemini_api_key', k);
+                apiKey = k;
+                document.getElementById('apiModal').classList.add('hidden');
+                showAlertModal("AI Activated.");
+            }
+        }
+
+        // --- UTILS & MODALS ---
+        function showConfirmModal(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const msg = document.getElementById('confirmMessage');
+                const yes = document.getElementById('confirmYesBtn');
+                const no = document.getElementById('confirmCancelBtn');
+                msg.innerText = message;
+                modal.classList.remove('hidden');
+                const close = (res) => { modal.classList.add('hidden'); resolve(res); };
+                yes.onclick = () => close(true); no.onclick = () => close(false);
+            });
+        }
+
+        async function hardReset() { 
+            if(await showConfirmModal("HARD RESET: Wipe all data?")) { 
+                localStorage.removeItem(RIDER_KEY); 
+                localStorage.removeItem(DISPATCH_KEY);
+                localStorage.removeItem(RIDER_PROGRESS_KEY);
+                location.reload(); 
+            } 
+        }
+
+        function sendSOS(t) { 
+            // Write SOS to shared incidents key for Admin
+            const sosData = { type: t, riderId: RIDER_ID, resolved: false, timestamp: Date.now() };
+            localStorage.setItem('balnova_incidents', JSON.stringify(sosData));
+            showAlertModal("SOS DISPATCHED. STAY PUT."); 
+            document.getElementById('sosModal').classList.add('hidden'); 
+        }
+
+        function openMsgModal() { 
+            const msgs = ["I am 5 mins away", "I am outside", "Traffic heavy"];
+            document.getElementById('msgList').innerHTML = msgs.map(m => `<button onclick="showAlertModal('Sent: ${m}');document.getElementById('msgModal').classList.add('hidden')" class="w-full text-left p-3 bg-gray-800 rounded text-gray-300 hover:bg-gray-700">${m}</button>`).join('');
+            document.getElementById('msgModal').classList.remove('hidden'); 
+        }
+        function sendAiMessage(txt) { showAlertModal(`Sent: ${txt}`); document.getElementById('msgModal').classList.add('hidden'); }
+        
+        function failCompliance(type) {
+            riderState.compliance[type] = false;
+            riderState.compliance.dayCompromised = true;
+            saveState();
+            showAlertModal("COMPLIANCE FAILURE DETECTED.");
+        }
+        
+        // --- REPLACEMENT JS: SUBMIT REPORT WITH CORRECTION ---
+function submitReport() {
+    const noteVal = document.getElementById('reportNote').value;
+    if(!noteVal && currentReportType === 'general') return showToast("Please add details", "error");
+
+    // 1. Penalize Rider Compliance? (Only for non-mismatch issues)
+    if (currentReportType !== 'mismatch') {
+        riderState.compliance.noFlags = false;
+        riderState.compliance.dayCompromised = true;
+    }
+    if (currentReportType !== 'mismatch') {
+    // STANDARD FAILURE -> STICKY
+    task.status = 'failed'; // Mark as failed
+    task.isSticky = true; // <--- NEW FLAG
+    task.note = `STICKY: ${noteVal}`;
+    const task = riderState.tasks[activeTaskIndex];
+    
+    if (currentReportType === 'mismatch') {
+        if (proposedSize === 0) return showToast("Select a size option above", "error");
+        
+        // CORRECTION LOGIC
+        task.status = 'flagged'; // Not 'done', but 'flagged' for Admin review
+        task.note = `MISMATCH: Vendor said ${task.vol || 'Small'}, Rider found Vol ${proposedSize}.`;
+        
+        // In a real app, this sends a specific API call: POST /order/update-size
+        // For simulation, we update the local object which syncs to Admin
+        task.proposedVolume = proposedSize;
+        
+        showToast("Size Update Sent to HQ");
+    } else {
+        // STANDARD FAILURE
+        task.status = 'failed';
+        task.note = `FAILED: ${noteVal}`;
+    }
+
+    saveState(); // Syncs to Admin Dashboard via localStorage
+    document.getElementById('reportModal').classList.add('hidden');
+    closeActionPanel();
+    renderList();
+    
+    if(currentReportType === 'mismatch') showAlertModal("HQ NOTIFIED. PROCEEDING.");
+    else showAlertModal("REPORT FILED. FLAG GENERATED.");
+}}
+        function endShift() {
+            const modal = document.getElementById('endShiftModal');
+            document.getElementById('summaryPending').innerText = riderState.pendingXp;
+            modal.classList.remove('hidden');
+            
+            const checks = ['qcCheck', 'pickupScan', 'route', 'pod', 'noFlags'];
+            const passed = checks.filter(k => riderState.compliance[k]).length;
+            const score = (passed/checks.length)*100;
+            document.getElementById('summaryComp').innerText = `${score}%`;
+            
+            const rel = document.getElementById('summaryReleased');
+            if(riderState.compliance.dayCompromised || score < 100) {
+                rel.innerText = "0"; rel.className = "text-red-500 font-mono text-xl line-through";
+                riderState.pendingXp = 0; riderState.streak = 0; riderState.strikes++;
+            } else {
+                rel.innerText = `+${riderState.pendingXp}`; rel.className = "text-brand-amber font-mono text-xl font-bold";
+                riderState.xp += riderState.pendingXp; riderState.pendingXp = 0; riderState.streak++;
+            }
+            riderState.compliance = { qcCheck: true, pickupScan: true, route: true, pod: true, noFlags: true, dayCompromised: false };
+            saveState();
+        }
+        function closeEndShift() { document.getElementById('endShiftModal').classList.add('hidden'); }
+        
+       // --- VACUUM LOGIC: MERGE ON ACCEPT ---
+function acceptVacuum() {
+    // Merge vacuum stops
+    riderState.tasks = [...riderState.tasks, ...pendingVacuumStops];
+    
+    // Add Vacuum volume (capped at 100)
+    riderState.currentVol = Math.min(100, riderState.currentVol + pendingVacuumVol);
+    
+    saveState();
+    renderList();
+    
+    document.getElementById('vacuumModal').classList.add('hidden');
+    pendingVacuumStops = [];
+    
+    showAlertModal("Vacuum Route Accepted. Rerouting...");
+}
+        function declineVacuum() { document.getElementById('vacuumModal').classList.add('hidden'); }
+        function openProfile() { document.getElementById('profileModal').classList.remove('hidden'); }
+        function closeActionPanel() { document.getElementById('actionPanel').classList.add('translate-y-full'); }
+        
+        // --- SLIDER LOGIC ---
+        function initSlider() {
+            const slider = document.getElementById('slideContainer');
+            const knob = document.getElementById('slideKnob');
+            let isDragging = false, startX;
+            if (sliderCleanup) sliderCleanup();
+            const start = (e) => { if(e.type === 'mousedown') e.preventDefault(); isDragging = true; startX = (e.pageX || e.touches[0].clientX); knob.style.transition = 'none'; };
+            const move = (e) => { if (!isDragging) return; const cur = (e.pageX || e.touches[0].clientX); const max = slider.clientWidth - knob.clientWidth; knob.style.transform = `translateX(${Math.max(0, Math.min(cur - startX, max))}px)`; };
+            const end = () => { if (!isDragging) return; isDragging = false; const max = slider.clientWidth - knob.clientWidth; const mat = new DOMMatrix(window.getComputedStyle(knob).transform); if (mat.m41 > max * 0.9) { knob.style.transform = `translateX(${max}px)`; completeTask(); } else { knob.style.transition = 'transform 0.2s'; knob.style.transform = `translateX(0px)`; } };
+            knob.addEventListener('mousedown', start); knob.addEventListener('touchstart', start);
+            document.addEventListener('mousemove', move); document.addEventListener('touchmove', move);
+            document.addEventListener('mouseup', end); document.addEventListener('touchend', end);
+            sliderCleanup = () => { knob.removeEventListener('mousedown', start); };
+        }
+        function simulateCamera() {
+            const btn = document.getElementById('btnCam');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying...';
+            setTimeout(() => {
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> <span class="font-bold">POD Secure</span>';
+                btn.className = "w-full bg-green-600 text-white p-4 rounded-xl flex items-center justify-center gap-2";
+                document.getElementById('slideContainer').style.opacity = '1';
+                document.getElementById('slideContainer').style.pointerEvents = 'auto';
+            }, 800);
+        }
+        function updateConnectionStatus() {
+            const dot = document.getElementById('connectionDot');
+            dot.classList.toggle('bg-red-500'); dot.classList.toggle('bg-brand-amber');
+        }
+// --- REPLACEMENT JS: OPEN REPORT MODAL ---
+let currentReportType = 'general';
+let proposedSize = 0;
+
+function openReportModal(type) {
+    currentReportType = type;
+    const title = document.getElementById('reportTitle');
+    const options = document.getElementById('reportOptions');
+    const note = document.getElementById('reportNote');
+    const btn = document.getElementById('btnSubmitReport');
+
+    // Reset State
+    note.value = "";
+    proposedSize = 0;
+    options.classList.add('hidden');
+
+    if (type === 'mismatch') {
+        title.innerText = "⚠️ Size Mismatch";
+        title.className = "font-bold text-lg text-yellow-500 mb-4 flex items-center gap-2";
+        title.innerHTML = '<i class="fa-solid fa-scale-unbalanced"></i> Verify Actual Size';
+        
+        options.classList.remove('hidden'); // Show size buttons
+        note.placeholder = "Describe item (e.g. 'It is a fridge')";
+        btn.innerText = "Update Size";
+        btn.className = "flex-1 py-3 bg-yellow-600 text-white rounded-xl font-bold hover:bg-yellow-500";
+    } else {
+        // Standard Failure (Customer unavailable, etc)
+        title.innerText = "Report Issue";
+        title.className = "font-bold text-lg text-white mb-4";
+        btn.innerText = "Submit Report";
+        btn.className = "flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-500";
+    }
+    
+    document.getElementById('reportModal').classList.remove('hidden');
+}
+
+function selectMismatchSize(size) {
+    proposedSize = size;
+    // Visual Feedback
+    const note = document.getElementById('reportNote');
+    if(size === 100) note.value = "REJECT: Item too big for bike.";
+    else note.value = `Correction: Actual size is Vol ${size}.`;
+    showToast(`Selected Volume: ${size}`);
+}        function showAlertModal(m) { document.getElementById('alertMessage').innerText = m; document.getElementById('alertModal').classList.remove('hidden'); }
+
+        init();
+    </script>
+</body>
+</html>

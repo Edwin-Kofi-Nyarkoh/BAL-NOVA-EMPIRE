@@ -1,0 +1,2123 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Portal | Bal Nova Empire</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            orange: '#FFBF00', 
+                            blue: '#0A2342',    
+                            dark: '#0f172a',
+                            light: '#f8fafc'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #FFBF00; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .locked-feature { position: relative; opacity: 0.6; cursor: not-allowed; transition: opacity 0.3s; }
+        .locked-feature:hover { opacity: 0.8; }
+        .lock-icon { position: absolute; top: -5px; right: -5px; background: #FFBF00; color: #0A2342; border-radius: 50%; width: 14px; height: 14px; font-size: 8px; display: flex; align-items: center; justify-content: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans transition-colors duration-300 dark:bg-brand-dark dark:text-gray-100 overflow-hidden h-screen flex">
+
+    <div id="toastContainer" class="fixed top-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <aside id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 w-64 bg-brand-blue text-white flex flex-col transition-transform duration-300 z-50 shadow-xl border-r border-white/10">
+       <div class="p-6 flex flex-col items-center border-b border-white/10">
+    <div class="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-3 border-2 border-brand-orange relative group">
+        <i class="fa-solid fa-shield-cat text-3xl text-brand-orange"></i>
+        <div class="absolute bottom-full mb-2 hidden group-hover:block w-32 bg-black text-xs text-center rounded p-1">
+            Reputation Score
+        </div>
+    </div>
+    <h1 class="font-bold text-xl tracking-wide">BAL NOVA</h1>
+    
+    <p class="text-xs text-brand-orange/80 mb-3">Vendor Portal <span class="bg-white/20 px-1 rounded text-[10px] ml-1" id="sidebarTierBadge">TIER 1</span></p>
+
+    <div class="w-full bg-black/40 rounded-full h-1.5 overflow-hidden mb-1">
+        <div id="trustBar" class="bg-green-500 h-full transition-all duration-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]" style="width: 100%"></div>
+    </div>
+    <div class="w-full flex justify-between text-[9px] text-gray-300 font-mono mb-2">
+        <span>Trust Score</span>
+        <span id="trustScoreVal" class="font-bold text-green-400">100%</span>
+    </div>
+
+    <div id="laneBadge" class="w-full text-[9px] text-center bg-green-500/10 text-green-400 border border-green-500/30 rounded py-1 font-bold uppercase tracking-wider transition-all">
+        <i class="fa-solid fa-gauge-high"></i> Green Lane (Fast)
+    </div>
+</div>
+
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group active-nav">
+                <i class="fa-solid fa-chart-line w-6 text-center group-hover:text-brand-orange transition-colors"></i>
+                <span class="font-medium">Dashboard</span>
+            </button>
+            <button onclick="switchTab('inventory')" id="nav-inventory" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group">
+                <i class="fa-solid fa-box w-6 text-center group-hover:text-brand-orange transition-colors"></i>
+                <span class="font-medium">Inventory</span>
+            </button>
+            <button onclick="switchTab('orders')" id="nav-orders" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group">
+                <i class="fa-solid fa-truck-fast w-6 text-center group-hover:text-brand-orange transition-colors"></i>
+                <span class="font-medium">Active Orders</span>
+            </button>
+            <button onclick="switchTab('wallet')" id="nav-wallet" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group">
+                <i class="fa-solid fa-wallet w-6 text-center group-hover:text-brand-orange transition-colors"></i>
+                <span class="font-medium">Wallet & Escrow</span>
+            </button>
+            
+            <!-- NEW QC TAB -->
+            <button onclick="switchTab('qc')" id="nav-qc" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group">
+                <i class="fa-solid fa-shield-halved w-6 text-center group-hover:text-brand-orange transition-colors"></i>
+                <span class="font-medium">QC & Firewall</span>
+            </button>
+            
+            <div id="teamTabContainer"></div>
+            <button onclick="switchTab('settings')" id="nav-settings" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group mt-4 border-t border-white/10 pt-4">
+                <i class="fa-solid fa-gear w-6 text-center group-hover:text-brand-orange transition-colors"></i>
+                <span class="font-medium">Settings & Tiers</span>
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-white/10">
+            <button onclick="resetVendorSystem()" class="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                <i class="fa-solid fa-power-off"></i>
+                <span>Reset System</span>
+            </button>
+        </div>
+    </aside>
+
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden backdrop-blur-sm"></div>
+
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative pt-16 md:pt-0">
+        
+        <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-6 shrink-0 transition-colors">
+            <div class="flex items-center">
+                <button onclick="toggleSidebar()" class="md:hidden text-gray-500 hover:text-brand-blue mr-4"><i class="fa-solid fa-bars text-xl"></i></button>
+                <h2 class="text-xl font-bold text-brand-blue dark:text-white" id="pageTitle">Command Center</h2>
+            </div>
+            
+            <div class="flex items-center gap-4 ml-auto">
+                <div id="headerPulseBtn"></div>
+                <button onclick="toggleTheme()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors text-brand-blue dark:text-brand-orange">
+                    <i class="fa-solid fa-moon" id="themeIcon"></i>
+                </button>
+                <div class="flex items-center gap-3 border-l pl-4 border-gray-300 dark:border-gray-600">
+                    <div class="text-right hidden sm:block">
+                        <div class="text-sm font-bold text-gray-900 dark:text-white">Kofi Electronics</div>
+                        <div class="text-xs text-green-500 font-medium flex items-center justify-end gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Live Sync
+                        </div>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-brand-orange text-brand-blue font-bold flex items-center justify-center border-2 border-white dark:border-gray-700 shadow-sm">KE</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+            
+            <div id="section-dashboard" class="tab-section animate-fade-in">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-gradient-to-r from-[#0A2342] to-[#FFBF00] rounded-xl p-5 shadow-lg text-white">
+                        <div class="text-xs font-bold opacity-80 uppercase tracking-wider mb-1">Escrow Balance</div>
+                        <div class="text-2xl font-black">GHS <span id="totalRevenue">0.00</span></div>
+                        <div class="text-[10px] mt-1 opacity-70">Releases 5 days after delivery</div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border-l-4 border-brand-blue">
+                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Inventory Value</div>
+                        <div class="text-2xl font-bold text-gray-800 dark:text-white">GHS <span id="inventoryValue">0.00</span></div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border-l-4 border-purple-500">
+                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Active Listings</div>
+                        <div class="text-2xl font-bold text-gray-800 dark:text-white" id="totalProducts">0</div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border-l-4 border-green-500">
+                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Pending Actions</div>
+                        <div class="text-2xl font-bold text-gray-800 dark:text-white" id="pendingOrderCount">0</div>
+                    </div>
+                </div>
+
+                <div id="aiDashboardSection" class="bg-gradient-to-r from-brand-blue to-blue-900 rounded-xl p-6 text-white shadow-lg mb-8 relative overflow-hidden group hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10"><i class="fa-solid fa-robot text-9xl"></i></div>
+                    <div class="relative z-10">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="font-bold text-lg text-brand-orange flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> Shop Analyst AI</h3>
+                                <p class="text-blue-200 text-sm">Real-time performance insights & predictions.</p>
+                            </div>
+                            <button onclick="generateShopReport()" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-bold border border-white/20 transition-colors">Generate Report</button>
+                        </div>
+                        <div id="aiShopReport" class="bg-black/20 p-4 rounded-lg text-sm leading-relaxed min-h-[60px]">
+                            <p class="opacity-70 italic">Click 'Generate Report' to scan your inventory performance...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-3 mb-6">
+                    <button onclick="openAddModal()" class="bg-brand-orange hover:bg-amber-500 text-brand-blue font-bold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Add Product
+                    </button>
+                    <button onclick="simulateIncomingOrder()" class="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-robot"></i> Sim. Bot Order
+                    </button>
+                    <button onclick="openPickupModal()" class="bg-brand-blue hover:bg-blue-900 text-white font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2">
+                        <i class="fa-solid fa-motorcycle"></i> Request Pickup
+                    </button>
+                    <!-- NEW VAN CHARTER BUTTON -->
+                    <button id="btn-charter" onclick="openCharterModal()" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2 hidden">
+                        <i class="fa-solid fa-truck-moving"></i> Book Van
+                    </button>
+                </div>
+            </div>
+
+            <div id="section-inventory" class="tab-section hidden animate-fade-in">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="font-bold text-lg dark:text-white">Your Showroom</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase"><tr><th class="p-4">Product</th><th class="p-4">Size Tier</th><th class="p-4">Price</th><th class="p-4">Stock</th><th class="p-4 text-right">Actions</th></tr></thead>
+                            <tbody id="inventoryTableBody" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm"></tbody>
+                        </table>
+                    </div>
+                    <div id="emptyState" class="hidden flex-col items-center justify-center py-16 text-center text-gray-400"><i class="fa-solid fa-box-open text-4xl mb-4"></i><p>Your shop is empty.</p></div>
+                </div>
+            </div>
+
+            <div id="section-orders" class="tab-section hidden animate-fade-in">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="font-bold text-lg dark:text-white">Order Fulfillment</h3>
+                        <span class="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded animate-pulse">● Live Sync</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-5 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase"><tr><th class="p-4">Order ID</th><th class="p-4">Item</th><th class="p-4">Details</th><th class="p-4">Status</th><th class="p-4 text-right">Action</th></tr></thead>
+                            <tbody id="ordersTableBody" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-wallet" class="tab-section hidden animate-fade-in">
+                <div class="bg-gradient-to-r from-brand-blue to-brand-orange rounded-xl p-6 text-white shadow-lg mb-6">
+                    <p class="text-white/80 text-sm font-bold uppercase mb-1">Withdrawable Balance</p>
+                    <h2 class="text-4xl font-black mb-4">GHS <span id="walletBalanceDisplay">0.00</span></h2>
+                    <p class="text-xs opacity-70">Pending funds release 5 days after delivery.</p>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="p-5 border-b border-gray-100 dark:border-gray-700"><h3 class="font-bold text-lg dark:text-white">Transaction History</h3></div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase"><tr><th class="p-4">Date</th><th class="p-4">Description</th><th class="p-4">Amount</th><th class="p-4">Status</th></tr></thead>
+                            <tbody id="walletTableBody" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEW QC SECTION -->
+            <div id="section-qc" class="tab-section hidden animate-fade-in">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="font-bold text-lg dark:text-white"><i class="fa-solid fa-shield-halved text-brand-orange mr-2"></i>QC & Firewall Logs</h3>
+                    </div>
+                    <div class="p-4 bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-800 dark:text-blue-200 mb-4 mx-4 rounded border border-blue-200 dark:border-blue-800">
+                        <i class="fa-solid fa-info-circle mr-1"></i> These photos are mandatory proof of item condition at the moment of pickup. They protect you from liability for damage during transit.
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase"><tr><th class="p-4">Order Ref</th><th class="p-4">Item</th><th class="p-4">Time</th><th class="p-4">Proof</th></tr></thead>
+                            <tbody id="qcTableBody" class="divide-y divide-gray-100 dark:divide-gray-700 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-team" class="tab-section hidden animate-fade-in">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="font-bold text-xl dark:text-white"><i class="fa-solid fa-users-gear text-brand-orange mr-2"></i> Team Management</h3>
+                        <button onclick="addStaff()" class="bg-brand-blue text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-900">Add Staff</button>
+                    </div>
+                    <div id="teamList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <div id="section-settings" class="tab-section hidden animate-fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 col-span-1 md:col-span-2">
+                        <h3 class="font-bold text-lg dark:text-white mb-2"><i class="fa-solid fa-key text-brand-orange mr-2"></i>API Configuration</h3>
+                        <p class="text-xs text-gray-500 mb-4">Required for AI Market Pulse & Auto-Descriptions.</p>
+                        <div class="flex gap-2">
+                            <input type="password" id="apiKeyInput" placeholder="Paste Google Gemini API Key here..." class="flex-1 p-3 rounded-lg border dark:bg-gray-900 dark:border-gray-600 dark:text-white text-sm focus:border-brand-orange focus:outline-none">
+                            <button onclick="saveApiKey()" class="bg-brand-orange text-brand-blue px-6 py-2 rounded-lg font-bold hover:bg-amber-500 shadow-md">Save Key</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-lg dark:text-white"><i class="fa-solid fa-warehouse mr-2"></i>Hub Locations</h3>
+                            <span class="text-[10px] bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-500">
+                                <i class="fa-solid fa-clock-rotate-left"></i> 30-Day Relocation Limit
+                            </span>
+                        </div>
+                        <div id="hubList" class="space-y-2 mb-4"></div>
+                        <button id="btnAddHub" onclick="addHub()" class="w-full py-2 border border-brand-blue text-brand-blue dark:text-brand-orange dark:border-brand-orange rounded font-bold text-xs hover:bg-brand-blue hover:text-white transition-colors hidden">
+                            <i class="fa-solid fa-plus"></i> Add New Hub
+                        </button>
+                    </div>
+
+                    <div class="bg-brand-blue/10 p-6 rounded-xl border border-brand-blue/30 col-span-1 md:col-span-2">
+                        <h3 class="font-bold text-brand-blue dark:text-brand-orange mb-2">Simulation: Switch Tier</h3>
+                        <div class="flex gap-2">
+                            <button onclick="setTier(1)" class="flex-1 py-3 bg-white dark:bg-gray-800 border border-brand-blue/20 rounded shadow-sm text-sm hover:bg-gray-100">Tier 1</button>
+                            <button onclick="setTier(2)" class="flex-1 py-3 bg-white dark:bg-gray-800 border border-brand-blue/20 rounded shadow-sm text-sm hover:bg-gray-100">Tier 2</button>
+                            <button onclick="setTier(3)" class="flex-1 py-3 bg-white dark:bg-gray-800 border border-brand-blue/20 rounded shadow-sm text-sm hover:bg-gray-100">Tier 3</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- CONFIRM MODAL (New) -->
+    <div id="confirmModal" class="fixed inset-0 z-[110] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-brand-orange">
+            <h3 class="font-bold text-lg dark:text-white mb-2">Confirmation Required</h3>
+            <p id="confirmMessage" class="text-sm text-gray-600 dark:text-gray-300 mb-6"></p>
+            <div class="flex gap-2">
+                <button id="confirmCancelBtn" class="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded font-bold dark:text-white">Cancel</button>
+                <button id="confirmYesBtn" class="flex-1 py-3 bg-brand-blue text-white rounded font-bold">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INPUT MODAL (New) -->
+    <div id="inputModal" class="fixed inset-0 z-[110] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-brand-orange">
+            <h3 class="font-bold text-lg dark:text-white mb-2" id="inputTitle">Input Required</h3>
+            <input type="text" id="inputField" class="w-full p-3 rounded-lg border dark:bg-gray-800 dark:border-gray-600 dark:text-white mb-6" autofocus>
+            <div class="flex gap-2">
+                <button id="inputCancelBtn" class="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded font-bold dark:text-white">Cancel</button>
+                <button id="inputYesBtn" class="flex-1 py-3 bg-brand-blue text-white rounded font-bold">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tier2Modal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center border-t-4 border-brand-orange">
+            <div class="w-16 h-16 bg-brand-orange/10 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-wand-magic-sparkles text-3xl text-brand-orange"></i></div>
+            <h3 class="text-2xl font-bold text-brand-blue dark:text-white mb-2">Unlock Growth</h3>
+            <p class="text-gray-500 text-sm mb-6">Upgrade to <strong>Tier 2 (Growth)</strong> to auto-generate descriptions and see market trends.</p>
+            <button onclick="document.getElementById('tier2Modal').classList.add('hidden')" class="w-full py-3 bg-brand-blue text-white font-bold rounded-xl shadow-lg hover:bg-brand-orange hover:text-brand-blue transition">Upgrade Now</button>
+        </div>
+    </div>
+
+    <div id="tier3Modal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-gradient-to-br from-gray-900 to-black w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center border border-brand-orange/30">
+            <div class="w-16 h-16 bg-brand-orange/20 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-crown text-3xl text-brand-orange"></i></div>
+            <h3 class="text-2xl font-black text-white mb-1">EMPIRE PLAN</h3>
+            <span class="text-[10px] uppercase tracking-widest text-brand-orange font-bold mb-4 block">Coming Soon</span>
+            <p class="text-gray-400 text-sm mb-6">Manage staff teams, get Top Shelf listings, and Priority Dispatch.</p>
+            <button onclick="document.getElementById('tier3Modal').classList.add('hidden')" class="w-full py-3 bg-white/10 text-white font-bold rounded-xl border border-white/20">Join Waitlist</button>
+        </div>
+    </div>
+
+    <!-- Manual Order / POS Modal -->
+    <div id="manualOrderModal" class="fixed inset-0 z-[55] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-brand-dark w-full max-w-sm rounded-xl shadow-2xl p-6 border-t-4 border-green-500">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="font-bold text-lg dark:text-white">Manual Sale (POS)</h3>
+                    <p class="text-xs text-gray-500" id="moItemName">--</p>
+                </div>
+                <button onclick="document.getElementById('manualOrderModal').classList.add('hidden')" class="text-gray-400"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <input type="hidden" id="moItemId">
+            
+            <div class="space-y-3">
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="text-xs font-bold text-gray-500 block mb-1">Override Price (GHS)</label>
+                        <input type="number" id="moPrice" class="w-full p-2 rounded border font-mono font-bold dark:bg-gray-800 dark:border-gray-600 dark:text-white" oninput="updateFeeUI()">
+                    </div>
+                    <div class="w-24">
+                        <label class="text-xs font-bold text-gray-500 block mb-1">Qty Sold</label>
+                        <input type="number" id="moQty" value="1" min="1" class="w-full p-2 rounded border font-mono font-bold dark:bg-gray-800 dark:border-gray-600 dark:text-white" oninput="updateFeeUI()">
+                    </div>
+                </div>
+                <div class="space-y-4 mb-4">
+    <div class="grid grid-cols-2 gap-4">
+        <div>
+            <label class="text-xs font-bold text-gray-500 block mb-1">Phone (User ID)</label>
+            <input type="tel" id="oPhone" placeholder="055..." class="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white font-mono" onkeyup="lookupCustomer(this.value)">
+        </div>
+        <div>
+            <label class="text-xs font-bold text-gray-500 block mb-1">Customer Name</label>
+            <input type="text" id="oCustomer" placeholder="Name" class="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+        </div>
+    </div>
+
+    <div id="knownLocations" class="hidden p-3 bg-brand-navy/10 border border-brand-navy/30 rounded-lg">
+        <p class="text-[10px] font-bold text-brand-navy dark:text-brand-amber mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-memory"></i> KNOWN LOCATIONS FOUND:
+        </p>
+        <div id="locationButtons" class="flex flex-wrap gap-2">
+            </div>
+    </div>
+
+    <div>
+        <label class="text-xs font-bold text-gray-500 block mb-1">Delivery Location</label>
+        <input type="text" id="oLoc" placeholder="e.g. East Legon" class="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+        <p class="text-[9px] text-gray-400 mt-1" id="locHint">Enter directions or select from above.</p>
+    </div>
+</div>                
+
+<div id="vendorExportCheck" class="hidden bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800 mt-2">
+    <div class="flex items-center gap-2">
+        <input type="checkbox" id="mdExportable" class="w-4 h-4 text-brand-orange rounded cursor-pointer">
+        <label for="mdExportable" class="text-xs font-bold dark:text-white cursor-pointer select-none">Certify Exportable (Dry Goods Only)</label>
+    </div>
+    <p class="text-[9px] text-gray-500 mt-1 pl-6">Perishables cannot be exported. Liability transfers at port.</p>
+</div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Delivery Zone</label>
+                    <select id="moZone" class="w-full p-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm" onchange="updateFeeUI()">
+                        <option value="15">Zone A (&lt;5km) - GHS 15</option>
+                        <option value="25" selected>Zone B (City) - GHS 25</option>
+                        <option value="45">Zone C (Outskirts) - GHS 45</option>
+                        <option value="60">Zone D (Regional) - GHS 60</option>
+                    </select>
+                </div>
+                <div id="vendorExportCheck" class="hidden bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800 mt-2">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="mdExportable" class="w-4 h-4 text-brand-orange rounded cursor-pointer">
+                        <label for="mdExportable" class="text-xs font-bold dark:text-white cursor-pointer select-none">Certify Exportable (Dry Goods Only)</label>
+                    </div>
+                    <p class="text-[9px] text-gray-500 mt-1 pl-6">Perishables cannot be exported. Liability transfers at port.</p>
+                </div>
+
+                <div class="bg-brand-blue/5 p-3 rounded-lg border border-brand-blue/20">
+                    <label class="text-xs font-bold text-brand-blue dark:text-brand-orange block mb-2">Delivery Payment:</label>
+                    <div class="flex gap-2 text-xs">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="feePayer" value="customer" checked class="peer hidden" onchange="updateFeeUI()">
+                            <div class="p-2 border rounded text-center peer-checked:bg-brand-blue peer-checked:text-white dark:peer-checked:bg-brand-orange dark:peer-checked:text-brand-blue transition-colors">Customer (COD)</div>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="feePayer" value="vendor" class="peer hidden" onchange="updateFeeUI()">
+                            <div class="p-2 border rounded text-center peer-checked:bg-brand-blue peer-checked:text-white dark:peer-checked:bg-brand-orange dark:peer-checked:text-brand-blue transition-colors">Vendor (Prepaid)</div>
+                        </label>
+                    </div>
+                    <div id="feeMsg" class="mt-2 text-center"></div>
+                </div>
+            </div>
+
+            <button onclick="submitManualOrder()" class="w-full mt-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 shadow-lg">Confirm & Deduct Stock</button>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="productModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-brand-dark w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                <h3 class="font-bold text-lg dark:text-white" id="modalTitle">Add Product</h3>
+                <button type="button" onclick="closeProductModalFunc()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="overflow-y-auto p-6 scroll-smooth">
+                <form id="productForm" class="space-y-5">
+                    <input type="hidden" id="editId">
+                    <div class="bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3"><label class="font-semibold text-sm dark:text-gray-200">Main Images (3-10 Required) <span class="text-red-500">*</span></label><span id="imgCount" class="text-xs font-mono text-red-500">0/10</span></div>
+                        <div class="flex flex-wrap gap-3" id="uploadGrid"><label class="w-20 h-20 flex flex-col items-center justify-center border border-brand-blue/30 text-brand-blue dark:text-brand-orange rounded-lg cursor-pointer bg-white dark:bg-gray-800 hover:bg-brand-orange/10 transition-colors"><input type="file" accept="image/*" multiple onchange="handleImageSelect(this)" class="hidden"><i class="fa-solid fa-camera mb-1"></i><span class="text-[10px] font-bold">ADD</span></label></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-sm font-medium dark:text-gray-300">Name <span class="text-red-500">*</span></label><input type="text" id="pName" required class="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"></div>
+                        <div><label class="text-sm font-medium dark:text-gray-300">Brand</label><input type="text" id="pBrand" class="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"></div>
+                    </div>
+                    
+                   <div class="grid grid-cols-2 gap-4">
+    <div>
+        <label class="text-sm font-medium dark:text-gray-300">Price (GHS) <span class="text-red-500">*</span></label>
+        <input type="number" id="pPrice" class="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white font-mono">
+    </div>
+    <div>
+        <label class="text-sm font-medium dark:text-gray-300">Category <span class="text-red-500">*</span></label>
+        <select id="pCategory" class="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+            <option value="Phone">Phone / Accessories (Small)</option>
+            <option value="Fashion">Clothing / Fashion</option>
+            <option value="Shoe">Shoes / Sneakers</option>
+            <option value="Laptop">Laptop / Tech</option>
+            <option value="Appliance">Home Appliance (Microwave)</option>
+            <option value="TV">TV / Monitor (Bulky)</option>
+            <option value="Other">Other (Subject to Review)</option>
+        </select>
+        <p class="text-[9px] text-gray-400 mt-1">System auto-calculates delivery size.</p>
+    </div>
+</div>
+                    
+                    <div class="p-3 bg-brand-orange/10 rounded-lg border border-brand-orange/20"><label class="text-sm font-bold text-gray-800 dark:text-white block mb-1">Base Product Quantity <span class="text-red-500">*</span></label><input type="number" id="pStock" placeholder="Enter stock for main item" class="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white font-mono font-bold"></div>
+                    
+                    <div>
+                        <label class="text-sm font-medium dark:text-gray-300">Storage Hub</label>
+                        <select id="pHub" class="w-full p-2.5 rounded-lg border dark:bg-gray-700 dark:text-white bg-white dark:bg-gray-800">
+                        </select>
+                    </div>
+
+                    <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/30">
+                        <label class="font-semibold text-sm dark:text-gray-200 mb-2 block">Add Variants (Optional)</label>
+                        <p class="text-[10px] text-gray-500 mb-3">Variants require: Color, Quantity and 3-10 Images.</p>
+                        
+                        <div class="flex flex-col gap-2 mb-2">
+                            <div class="flex gap-2">
+                                <input type="text" id="vColor" placeholder="Color/Size" class="flex-1 p-2 rounded border text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                                <input type="number" id="vStock" placeholder="Qty" class="w-20 p-2 rounded border text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            
+                            <div class="flex flex-col">
+                                <label class="text-[10px] font-bold text-gray-500 mb-1">Variant Images (Min 3)</label>
+                                <div class="flex flex-wrap gap-2" id="vUploadGrid">
+                                    <label class="w-12 h-12 flex flex-col items-center justify-center border border-gray-300 dark:border-gray-600 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 bg-white dark:bg-gray-800">
+                                        <input type="file" accept="image/*" multiple onchange="handleVariantImages(this)" class="hidden">
+                                        <i class="fa-solid fa-plus text-xs text-gray-400"></i>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="button" onclick="addVariant()" class="mt-2 bg-brand-blue text-white w-full py-2 rounded text-sm font-bold hover:bg-brand-orange shadow-md transition-colors">Add Variant</button>
+                        </div>
+                        
+                        <div id="variantList" class="flex flex-col gap-2 mt-2"></div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1"><label class="text-sm font-medium dark:text-gray-300">Description</label><button id="aiWriteBtn" type="button" onclick="handleAIWrite()" class="text-xs font-bold text-gray-400 hover:text-brand-orange flex items-center gap-1"><i class="fa-solid fa-lock text-[8px]"></i> AI Write</button></div>
+                        <textarea id="pDesc" rows="2" class="w-full p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"></textarea>
+                    </div>
+                    <div id="topShelfToggle" class="flex items-center justify-between bg-gray-100 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-600 opacity-75 cursor-not-allowed" onclick="handleTopShelf()"><div class="flex items-center gap-3"><div class="w-10 h-6 bg-gray-300 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full absolute top-1 left-1"></div></div><div><div class="font-bold text-sm text-gray-800 dark:text-white flex items-center gap-2">Promote to Top Shelf <i class="fa-solid fa-lock text-[8px] text-brand-orange"></i></div><div class="text-[10px] text-gray-500">2x Visibility on Marketplace</div></div></div><span class="text-[10px] font-bold text-brand-orange bg-brand-orange/10 px-2 py-1 rounded">EMPIRE PLAN</span></div>
+<div class="grid grid-cols-2 gap-4 mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+    <div class="flex items-center gap-2">
+        <input type="checkbox" id="pExport" class="w-4 h-4 text-brand-orange rounded border-gray-300 focus:ring-brand-orange">
+        <div>
+            <label for="pExport" class="text-xs font-bold text-gray-700 dark:text-gray-200">Allow Export</label>
+            <p class="text-[9px] text-gray-500">Visible to International Customers</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <input type="checkbox" id="pResell" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-600">
+        <div>
+            <label for="pResell" class="text-xs font-bold text-gray-700 dark:text-gray-200">Reseller Army</label>
+            <p class="text-[9px] text-gray-500">Activate Reseller Army</p>
+        </div>
+    </div>
+</div>                </form>
+            </div>
+            <div class="p-5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3 rounded-b-xl"><button type="button" onclick="closeProductModalFunc()" class="px-5 py-2.5 rounded-lg text-gray-600 font-medium hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button><button type="button" onclick="submitProduct()" class="px-6 py-2.5 rounded-lg bg-brand-orange text-brand-blue font-bold shadow-md hover:bg-amber-500">Save Product</button></div>
+        </div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div id="detailModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-brand-dark w-full max-w-lg rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                <h3 class="font-bold text-lg dark:text-white">Product Details</h3>
+                <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="overflow-y-auto p-6 scroll-smooth flex-1">
+                <div class="mb-4"><img id="detailMainImg" src="" class="w-full h-64 object-cover rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-2"><div id="detailThumbnails" class="flex gap-2 overflow-x-auto pb-2"></div></div>
+                <div class="space-y-4">
+                    <div><div class="flex justify-between items-start"><div><h2 id="detailName" class="text-2xl font-bold dark:text-white">--</h2><p id="detailBrand" class="text-sm text-gray-500 dark:text-gray-400">--</p></div><div class="text-right"><div id="detailPrice" class="text-xl font-bold text-brand-orange font-mono">--</div></div></div></div>
+                    <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Stock</div><div id="detailStock" class="text-lg font-bold dark:text-white">--</div></div>
+                    <div><div class="text-sm font-bold dark:text-gray-200 mb-1">Description</div><p id="detailDesc" class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">--</p></div>
+                    <div><div class="text-sm font-bold dark:text-gray-200 mb-2">Variants</div><div id="detailVariants" class="flex flex-wrap gap-2"></div></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <button onclick="editCurrentProduct()" class="w-full py-3 bg-brand-blue hover:bg-brand-orange hover:text-brand-blue text-white font-bold rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"><i class="fa-solid fa-pen-to-square"></i> Edit Product</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pickup Modal -->
+    <div id="pickupModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm border-t-4 border-brand-blue flex flex-col max-h-[90vh]">
+        
+        <div class="flex justify-between items-center p-6 pb-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
+            <div>
+                <h3 class="font-bold text-lg dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-motorcycle text-brand-blue"></i> Request Rider
+                </h3>
+                <p class="text-xs text-gray-500">Declared Manifest</p>
+            </div>
+            <button onclick="document.getElementById('pickupModal').classList.add('hidden')" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+
+        <div class="overflow-y-auto p-6 space-y-4">
+            
+            <div>
+                <label class="text-xs font-bold text-gray-500 block mb-1">Receiver Contact</label>
+                <div class="relative">
+                    <input type="tel" id="puPhone" placeholder="055..." class="w-full p-3 rounded-lg border dark:bg-gray-800 dark:border-gray-600 dark:text-white font-mono" onkeyup="lookupPickupContact(this.value)">
+                    <div id="puLoader" class="absolute right-3 top-3 hidden text-brand-blue animate-spin"><i class="fa-solid fa-circle-notch"></i></div>
+                </div>
+            </div>
+
+            <div id="puKnownLocs" class="hidden p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div id="puLocButtons" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Pickup From</label>
+                    <input type="text" id="pickupLoc" value="My Shop Location" class="w-full p-3 rounded-lg border dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Deliver To</label>
+                    <input type="text" id="dropLoc" placeholder="e.g. Supplier at Okaishie" class="w-full p-3 rounded-lg border dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                </div>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-200 dark:border-gray-600">
+                <label class="text-xs font-bold text-brand-orange block mb-2"><i class="fa-solid fa-ruler-combined"></i> Package Size (Required)</label>
+                <select id="puSize" class="w-full p-2.5 rounded-lg border dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" onchange="updatePickupFee()">
+                    <option value="Envelope">Envelope / Phone (2 VU)</option>
+                    <option value="ShoeBox" selected>Shoe Box / Food (10 VU)</option>
+                    <option value="Laptop">Laptop Bag (15 VU)</option>
+                    <option value="Microwave">Medium / Microwave (50 VU)</option>
+                    <option value="Bulky">Large / Monitor (80 VU)</option>
+                    <option value="Oversize">Huge / Generator (Van Only)</option>
+                </select>
+                <p class="text-[9px] text-gray-400 mt-1">⚠️ Mis-declaration leads to Trust Score penalty.</p>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold text-gray-500 block mb-1">Item Description</label>
+                <textarea id="pickupNotes" class="w-full p-3 rounded-lg border dark:bg-gray-800 dark:border-gray-600 dark:text-white" rows="2" placeholder="e.g. Box of Spare Parts"></textarea>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold text-gray-500 block mb-1">Distance Estimate</label>
+                <select id="puZone" class="w-full p-2 rounded border dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" onchange="updatePickupFee()">
+                    <option value="15">Zone A (Nearby) - GHS 15</option>
+                    <option value="25" selected>Zone B (City) - GHS 25</option>
+                    <option value="45">Zone C (Outskirts) - GHS 45</option>
+                    <option value="60">Zone D (Regional) - GHS 60</option>
+                </select>
+            </div>
+
+            <div class="flex items-center justify-between py-2">
+                <span class="text-xs font-bold dark:text-white">Receiver Pays?</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="puReceiverPays" class="sr-only peer" onchange="updatePickupFee()">
+                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:bg-brand-blue peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                </label>
+            </div>
+            
+            <div id="puCashDiv" class="pt-2 border-t border-gray-200 dark:border-gray-700">
+                 <label class="text-xs font-bold text-green-600 dark:text-green-400 block mb-1">Collect Item Cash? (COD)</label>
+                 <input type="number" id="puCash" placeholder="0.00" class="w-full p-2 rounded border border-green-200 dark:border-green-800 dark:bg-gray-900 dark:text-white font-mono" oninput="updatePickupFee()">
+            </div>
+
+            <div class="text-center p-3 bg-brand-blue/5 rounded-lg">
+                <div class="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Total Upfront Cost</div>
+                <div class="text-3xl font-black text-brand-blue dark:text-white flex items-center justify-center gap-2">
+                    <span class="currency-symbol text-lg opacity-50">GHS</span> 
+                    <span id="puTotalFee">25.00</span>
+                </div>
+                <p class="text-[10px] text-gray-500 mt-1" id="puWalletNote">Deducted from Wallet</p>
+            </div>
+        </div>
+
+        <div class="p-6 pt-2 border-t border-gray-100 dark:border-gray-800 shrink-0">
+            <button onclick="confirmPickup()" class="w-full py-3 bg-brand-blue text-white font-bold rounded-xl shadow-lg hover:bg-brand-navy flex items-center justify-center gap-2">
+                <span>Confirm Request</span>
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+</div>
+
+    <!-- NEW: CHARTER REQUEST MODAL -->
+    <div id="charterModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-purple-600">
+            <h3 class="font-bold text-lg mb-2 dark:text-white flex items-center gap-2"><i class="fa-solid fa-truck-moving text-purple-500"></i> Book Full Van</h3>
+            <p class="text-xs text-gray-500 mb-4">Moving stock between hubs or relocating? Book a charter.</p>
+            
+            <form onsubmit="submitCharterRequest(event)" class="space-y-3">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Pickup Point</label>
+                    <input type="text" id="charterPickup" placeholder="e.g. Current Warehouse" required class="w-full p-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Destination</label>
+                    <input type="text" id="charterDrop" placeholder="e.g. New Branch" required class="w-full p-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Date & Time</label>
+                    <input type="datetime-local" id="charterTime" required class="w-full p-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Load Details</label>
+                    <textarea id="charterDesc" rows="2" placeholder="e.g. 50 boxes of electronics, 2 display cabinets" required class="w-full p-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm"></textarea>
+                </div>
+                <div class="bg-purple-50 dark:bg-purple-900/20 p-2 rounded text-[10px] text-purple-600 dark:text-purple-300">
+                    <i class="fa-solid fa-info-circle"></i> Manager will call to confirm price based on load.
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="document.getElementById('charterModal').classList.add('hidden')" class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 font-bold rounded-lg text-sm">Cancel</button>
+                    <button type="submit" class="flex-1 py-2 bg-purple-600 text-white font-bold rounded-lg text-sm hover:bg-purple-700">Request Quote</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CHARTER SUCCESS MODAL -->
+    <div id="charterSuccessModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl text-center">
+            <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <h3 class="text-xl font-bold dark:text-white mb-2">Request Sent!</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                Our Logistics Manager will call you shortly to discuss pricing and confirm the booking.
+            </p>
+            <button onclick="document.getElementById('charterSuccessModal').classList.add('hidden')" class="w-full py-2 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700">Close</button>
+        </div>
+    </div>
+
+    <!-- AI Modal -->
+    <div id="aiModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-lg h-[70vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg dark:text-white" id="aiModalTitle">AI Assistant</h3><button onclick="document.getElementById('aiModal').classList.add('hidden')"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-4" id="aiContent"><div id="aiLoader" class="hidden text-center py-10"><div class="loader mx-auto mb-2"></div></div></div>
+            <button onclick="document.getElementById('aiModal').classList.add('hidden')" class="w-full py-2 bg-gray-200 rounded-lg">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // --- VOLUMETRIC UNIT (VU) STANDARDS ---
+const VU_CONFIG = {
+    'Envelope': { vu: 2, label: 'Envelope / Phone (2 VU)' },
+    'ShoeBox': { vu: 10, label: 'Shoe Box / Food (10 VU)' },
+    'Laptop': { vu: 15, label: 'Laptop Bag (15 VU)' },
+    'Microwave': { vu: 50, label: 'Medium Box / Microwave (50 VU)' },
+    'Bulky': { vu: 80, label: 'Large / Monitor (80 VU)' },
+    'Oversize': { vu: 120, label: 'Van Load (100+ VU)' }
+};
+        // --- APP CONFIGURATION ---
+        const APP_CONFIG = {
+            enable_van_charter: false // Toggle to TRUE to show "Book Van" button
+        };
+
+        // GLOBAL STATE
+        let products = JSON.parse(localStorage.getItem('balnova_inventory')) || [];
+        let vendorOrders = JSON.parse(localStorage.getItem('balnova_vendor_orders')) || [];
+        let wallet = JSON.parse(localStorage.getItem('balnova_vendor_wallet')) || [];
+        let hubs = JSON.parse(localStorage.getItem('balnova_vendor_hubs')) || ['Main Branch'];
+        let myPickups = JSON.parse(localStorage.getItem('balnova_vendor_pickups')) || [];
+        let staff = JSON.parse(localStorage.getItem('balnova_vendor_staff')) || [];
+        
+        let tempImages = [], tempVariants = [], tempVariantImages = [];
+        let apiKey = localStorage.getItem('gemini_api_key') || "";
+        let vendorTier = parseInt(localStorage.getItem('vendor_tier')) || 1;
+        let currentViewId = null;
+        let qcLogs = JSON.parse(localStorage.getItem('balnova_qc_logs')) || [];
+
+        // Hub Cooldown State
+        let lastRelocation = parseInt(localStorage.getItem('balnova_last_relocation')) || 0;
+        const COOLDOWN_DAYS = 30; // 30 Day Rule
+        const COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+
+        // --- DEBOUNCE TIMER FOR AI AUTO-ZONING ---
+        let debounceTimer;
+
+        // --- CUSTOM MODAL HELPERS (Replaces Native Confirm/Prompt) ---
+        function showConfirmModal(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const msg = document.getElementById('confirmMessage');
+                const yes = document.getElementById('confirmYesBtn');
+                const no = document.getElementById('confirmCancelBtn');
+                
+                msg.innerText = message;
+                modal.classList.remove('hidden');
+                
+                const close = (result) => {
+                    modal.classList.add('hidden');
+                    yes.onclick = null;
+                    no.onclick = null;
+                    resolve(result);
+                };
+                
+                yes.onclick = () => close(true);
+                no.onclick = () => close(false);
+            });
+        }
+
+        function showInputModal(title, defaultValue = "") {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('inputModal');
+                const titleEl = document.getElementById('inputTitle');
+                const inputEl = document.getElementById('inputField');
+                const yes = document.getElementById('inputYesBtn');
+                const no = document.getElementById('inputCancelBtn');
+                
+                titleEl.innerText = title;
+                inputEl.value = defaultValue;
+                modal.classList.remove('hidden');
+                inputEl.focus();
+                
+                const close = (result) => {
+                    modal.classList.add('hidden');
+                    yes.onclick = null;
+                    no.onclick = null;
+                    resolve(result);
+                };
+                
+                yes.onclick = () => close(inputEl.value);
+                no.onclick = () => close(null);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Apply Config
+            if (!APP_CONFIG.enable_van_charter) {
+                const btn = document.getElementById('btn-charter');
+                if(btn) btn.classList.add('hidden');
+            } else {
+                const btn = document.getElementById('btn-charter');
+                if(btn) btn.classList.remove('hidden');
+            }
+
+            if(apiKey) document.getElementById('apiKeyInput').value = apiKey;
+            loadProducts(); updateStats(); renderWallet(); renderOrders(); renderPickups(); renderTeam(); renderHubs(); renderQC();
+            
+            // Unified Sync Loop (Runs every 3 seconds)
+            setInterval(syncSystem, 3000); 
+            
+            updateTierUI();
+            
+            if (localStorage.getItem('vendor_theme') === 'dark') document.documentElement.classList.add('dark');
+        });
+
+        // --- SYNC SYSTEM (UPDATED) ---
+        // --- SYNC SYSTEM (OPTIMIZED) ---
+        function syncSystem() {
+            // 1. Sync Inventory (Read-Only Check first to avoid unnecessary repaints)
+            const freshProductsStr = localStorage.getItem('balnova_inventory');
+            const currentProductsStr = JSON.stringify(products);
+            
+            // Only parse and reload if the string signature is different
+            if (freshProductsStr && freshProductsStr !== currentProductsStr) {
+                products = JSON.parse(freshProductsStr);
+                loadProducts();
+            }
+
+            // 2. Sync Rider Data (Smart Status Update)
+            const riderProgress = JSON.parse(localStorage.getItem('balnova_rider_progress')); 
+            let writeNeeded = false;
+            
+            if (riderProgress && riderProgress.stops) {
+                vendorOrders.forEach(o => {
+                    let newStatus = o.status;
+                    
+                    // Optimization: Skip orders that are already terminal to save cycles
+                    if (o.status === 'Delivered' || o.status === 'Failed') return; 
+
+                    const stop = riderProgress.stops.find(s => s.note.includes(o.id) || s.note.includes(o.item));
+                    
+                    if (stop) {
+                        // Strict State Transitions
+                        if (stop.status === 'pending' && o.status !== "Rider En Route") newStatus = "Rider En Route";
+                        if (stop.status === 'done' && o.status !== "Delivered") newStatus = "Delivered"; 
+                        if (stop.status === 'failed' && o.status !== "Delivery Failed") newStatus = "Delivery Failed";
+                    }
+                    
+                    // THE FIX: Only flag for write if status ACTUALLY changed
+                    if(newStatus !== o.status) { 
+                        o.status = newStatus; 
+                        writeNeeded = true; 
+                    }
+                });
+            }
+            
+            // Commit only if dirty
+            if(writeNeeded) { 
+                localStorage.setItem('balnova_vendor_orders', JSON.stringify(vendorOrders)); 
+                renderOrders(); 
+            }
+        }
+
+        // --- QC LOGIC ---
+        function renderQC() {
+            const tb = document.getElementById('qcTableBody'); if(!tb) return; tb.innerHTML = '';
+            if(qcLogs.length === 0) { tb.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">No pickup logs yet.</td></tr>`; return; }
+            qcLogs.forEach(l => {
+                tb.innerHTML += `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+                        <td class="p-4 font-mono text-xs text-gray-500">${l.orderId}</td>
+                        <td class="p-4 font-bold dark:text-white">${l.item}</td>
+                        <td class="p-4 text-xs text-gray-500">${l.time}</td>
+                        <td class="p-4"><a href="${l.img}" target="_blank" class="text-blue-500 underline text-xs font-bold">View Photo</a></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- MANUAL ORDER / POS LOGIC ---
+        function openManualOrder(id) {
+            const p = products.find(x => x.id === id);
+            if(!p) return;
+            const stock = (p.baseStock || 0);
+            if (stock <= 0) return showToast("Out of stock!", "error");
+
+            document.getElementById('moItemId').value = p.id;
+            document.getElementById('moItemName').innerText = p.name + ` (Stock: ${stock})`;
+            document.getElementById('moPrice').value = p.price;
+            document.getElementById('moQty').value = 1;
+            document.getElementById('moQty').max = stock;
+            document.getElementById('moName').value = "";
+            document.getElementById('moPhone').value = "";
+            document.getElementById('moLoc').value = "";
+            
+            // Reset to defaults
+            document.getElementById('moZone').value = "25"; 
+            
+            updateFeeUI();
+            document.getElementById('manualOrderModal').classList.remove('hidden');
+        }
+
+        async function calcDeliveryZone() {
+            const locInput = document.getElementById('moLoc');
+            const loc = locInput.value.toLowerCase().trim();
+            const dd = document.getElementById('moZone');
+            
+            // 1. Basic String Matching
+            if (loc.includes('spintex') || loc.includes('teshie')) { dd.value = "15"; updateFeeUI(); return; }
+            if (loc.includes('kasoa') || loc.includes('weija') || loc.includes('adenta')) { dd.value = "45"; updateFeeUI(); return; }
+            if (loc.includes('accra') || loc.includes('cantonments') || loc.includes('osu')) { dd.value = "25"; updateFeeUI(); return; }
+            if (loc.includes('tema') || loc.includes('prampram')) { dd.value = "60"; updateFeeUI(); return; }
+
+            // 2. AI Auto-Zoning
+            clearTimeout(debounceTimer);
+            if (loc.length > 3 && apiKey) {
+                const msg = document.getElementById('feeMsg');
+                if(msg) msg.innerHTML = '<div class="text-xs text-brand-orange animate-pulse text-center">AI calculating zone...</div>';
+                
+                debounceTimer = setTimeout(async () => {
+                    const prompt = `I am a delivery dispatcher in Spintex, Accra. How far is "${loc}"? 
+                    Categorize strictly into: 
+                    - "15" (Close/Nearby/Teshie/Nungua)
+                    - "25" (City Core/Osu/Airport/Labadi)
+                    - "45" (Outskirts/Adenta/Kasoa/Weija)
+                    - "60" (Regional/Tema/Prampram)
+                    Return ONLY the number.`;
+                    
+                    try {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                        });
+                        const data = await response.json();
+                        const zone = data.candidates[0].content.parts[0].text.trim();
+                        if (["15", "25", "45", "60"].includes(zone)) {
+                            dd.value = zone;
+                            showToast(`AI Detected Zone: GHS ${zone}`, "success");
+                        }
+                    } catch (e) { 
+                        console.error("AI Zoning Failed", e); 
+                    } finally {
+                        updateFeeUI();
+                    }
+                }, 1000);
+            }
+        }
+
+        // --- UPDATED FEE UI (Merged Hotfix v3.3.1) ---
+function updateFeeUI() {
+    const payer = document.querySelector('input[name="feePayer"]:checked').value;
+    const price = parseFloat(document.getElementById('moPrice').value) || 0;
+    const qty = parseInt(document.getElementById('moQty').value) || 1;
+    const totalItemCost = price * qty;
+    
+    // 1. Physics Calc
+    const id = parseInt(document.getElementById('moItemId').value);
+    const p = products.find(x => x.id === id);
+    const volPerItem = p ? (parseInt(p.volume) || 2) : 2; 
+    
+    const totalVol = volPerItem * qty;
+    const trips = Math.ceil(totalVol / 100);
+
+    // 2. Handling Fee
+    let perItemFee = 0;
+    if (volPerItem <= 5) perItemFee = 1; 
+    else if (volPerItem <= 20) perItemFee = 4;
+    else perItemFee = 7;
+    const handlingSurcharge = perItemFee * qty;
+
+    // 3. Zone Logic
+    const zoneBase = parseInt(document.getElementById('moZone').value) || 25;
+    const deliveryFee = (zoneBase * trips) + handlingSurcharge;
+    
+    const msg = document.getElementById('feeMsg');
+    const tripWarn = trips > 1 ? `<span class="text-red-500 font-bold ml-1">(${trips} Trips)</span>` : '';
+    
+    if(payer === 'customer') {
+        const totalToCollect = totalItemCost + deliveryFee;
+        msg.innerHTML = `
+            <div class="flex justify-between text-xs mb-1"><span>Item Cost:</span> <span>GHS ${totalItemCost.toFixed(2)}</span></div>
+            <div class="flex justify-between text-xs mb-1"><span>Delivery Fee${tripWarn}:</span> <span>GHS ${deliveryFee.toFixed(2)}</span></div>
+            <div class="flex justify-between text-xs mb-1 text-gray-500 pl-2"><span>(Base ${zoneBase*trips} + Handling ${handlingSurcharge})</span></div>
+            <div class="flex justify-between font-bold border-t border-gray-300 dark:border-gray-600 pt-1 mt-1 dark:text-white"><span>Rider Collects:</span> <span>GHS ${totalToCollect.toFixed(2)}</span></div>
+            <div class="text-[10px] text-gray-500 mt-1 text-center">(Customer pays Fee + Item)</div>
+        `;
+    } else {
+        msg.innerHTML = `
+            <div class="flex justify-between text-xs mb-1"><span>Item Cost:</span> <span>GHS ${totalItemCost.toFixed(2)}</span></div>
+            <div class="flex justify-between text-xs mb-1 text-red-500 font-bold"><span>Prepaid Fee${tripWarn}:</span> <span>- GHS ${deliveryFee.toFixed(2)}</span></div>
+            <div class="flex justify-between text-xs mb-1 text-gray-500 pl-2"><span>(Base ${zoneBase*trips} + Handling ${handlingSurcharge})</span></div>
+            <div class="flex justify-between font-bold border-t border-gray-300 dark:border-gray-600 pt-1 mt-1 dark:text-white"><span>Rider Collects:</span> <span>GHS ${totalItemCost.toFixed(2)}</span></div>
+            <div class="text-[10px] text-gray-500 mt-1 text-center">(You pay Fee now, Rider collects Item cost)</div>
+        `;
+    }
+}
+
+// --- CONSOLIDATED MANUAL ORDER LOGIC (POS + AUTO-ROUTING) ---
+
+function toggleExportCheck() {
+    const val = document.getElementById('mdType') ? document.getElementById('mdType').value : 'Local';
+    const div = document.getElementById('vendorExportCheck');
+    if(div) {
+        if (val !== 'Local') div.classList.remove('hidden');
+        else div.classList.add('hidden');
+    }
+}
+
+function detectRegionFromPhone(phone) {
+    const p = phone.trim();
+    const myRegion = localStorage.getItem('balnova_active_region') || 'GH';
+    
+    const prefixes = {
+        'GH': ['+233', '05', '02'],
+        'NG': ['+234', '080', '081', '070'],
+        'BF': ['+226'],
+        'US': ['+1']
+    };
+
+    let targetRegion = myRegion; 
+    for (const [region, codes] of Object.entries(prefixes)) {
+        if (codes.some(code => p.startsWith(code))) {
+            targetRegion = region;
+            break;
+        }
+    }
+
+    if (targetRegion !== myRegion) {
+        return { type: 'Export', dest: targetRegion, isExport: true };
+    }
+    return { type: 'Local', dest: myRegion, isExport: false };
+}
+
+function submitManualOrder() {
+    // 1. Get Product
+    const prodId = parseInt(document.getElementById('moItemId').value);
+    const product = products.find(p => p.id === prodId);
+    if (!product) return showToast("System Error: Product not found", "error");
+
+    // 2. Get Inputs
+    const qty = parseInt(document.getElementById('moQty').value) || 1;
+    const pricePerUnit = parseFloat(document.getElementById('moPrice').value) || 0;
+    const phone = document.getElementById('oPhone').value; 
+    const name = document.getElementById('oCustomer').value;
+    const dropLoc = document.getElementById('oLoc').value || "Pickup at Hub";
+    const zoneVal = parseInt(document.getElementById('moZone').value) || 25;
+    
+    if(!phone) return showToast("Customer Phone is required", "error");
+    if(qty > product.baseStock) return showToast(`Only ${product.baseStock} units available`, "error");
+
+    // 3. AUTO-DETECT DESTINATION
+    const routing = detectRegionFromPhone(phone);
+    if (routing.isExport && !product.isExportable) {
+        if(!confirm(`⚠️ ALERT: Customer is in ${routing.dest} (International), but this item is marked 'Local Only'. Proceed anyway?`)) return;
+    }
+
+    // 4. Financials (Re-calc to be safe)
+    const totalItemCost = pricePerUnit * qty;
+    const volPerItem = (parseInt(product.volume) || 2);
+    const totalVol = volPerItem * qty;
+    
+    // Fee Logic (Mirroring updateFeeUI)
+    const trips = Math.ceil(totalVol / 100);
+    let perItemFee = volPerItem <= 5 ? 1 : (volPerItem <= 20 ? 4 : 7);
+    const handling = perItemFee * qty;
+    const deliveryFee = (zoneVal * trips) + handling;
+
+    const payer = document.querySelector('input[name="feePayer"]:checked').value;
+    const walletDeduction = payer === 'vendor' ? deliveryFee : 0;
+
+    if (walletDeduction > 0) {
+        const balance = wallet.filter(t => t.status === "Released" || t.status === "Paid").reduce((sum, t) => sum + t.amount, 0);
+        if (balance < walletDeduction) return showToast("Insufficient Wallet Balance", "error");
+    }
+
+    // 5. Create Order
+    const order = {
+        id: `ORD-${Date.now()}`,
+        customer: name || "Guest",
+        customerPhone: phone,
+        item: `${product.name} (x${qty})`,
+        revenue: deliveryFee.toFixed(2),
+        val: totalItemCost,
+        status: 'Pending',
+        timestamp: Date.now(),
+        dropLoc: dropLoc,
+        volume: totalVol, 
+        weight: (product.weight || 5) * qty,
+        vendorTier: localStorage.getItem('balnova_vendor_tier') || 'Standard',
+        type: routing.type,       
+        destRegion: routing.dest,
+        isExportable: routing.isExport,
+        feePayer: payer,
+        originRegion: localStorage.getItem('balnova_active_region') || 'GH'
+    };
+
+    // 6. Deduct Stock & Save
+    product.baseStock -= qty;
+    localStorage.setItem('balnova_inventory', JSON.stringify(products));
+    loadProducts();
+
+    vendorOrders.unshift(order);
+    if (walletDeduction > 0) {
+        wallet.unshift({ date: new Date().toLocaleDateString(), desc: `Prepaid Delivery: ${order.item}`, amount: -walletDeduction, status: "Paid" });
+    }
+
+    // Sync Global & Local
+    const regionKey = `balnova_vendor_orders_${order.originRegion}`;
+    let globalOrders = JSON.parse(localStorage.getItem(regionKey)) || [];
+    globalOrders.unshift(order);
+    localStorage.setItem(regionKey, JSON.stringify(globalOrders));
+    
+    localStorage.setItem('balnova_vendor_orders', JSON.stringify(vendorOrders));
+    localStorage.setItem('balnova_vendor_wallet', JSON.stringify(wallet));
+
+    // 7. Cleanup
+    document.getElementById('manualOrderModal').classList.add('hidden');
+    updateStats();
+    renderOrders();
+    renderWallet();
+    
+    if (routing.isExport) showToast(`🌍 Export Order Created for ${routing.dest}!`, "success");
+    else showToast("Local Order Created!");
+}
+
+function openManualOrder(id) {
+    const p = products.find(x => x.id === id);
+    if(!p) return;
+    
+    const stock = (p.baseStock || 0);
+    if (stock <= 0) return showToast("Out of stock!", "error");
+
+    document.getElementById('moItemId').value = p.id;
+    document.getElementById('moItemName').innerHTML = `<span class="text-brand-blue font-bold">${p.name}</span> <span class="text-gray-500 text-xs">(${stock} in stock)</span>`;
+    document.getElementById('moPrice').value = p.price;
+    document.getElementById('moQty').value = 1;
+    document.getElementById('moQty').max = stock;
+
+    // Clear Fields
+    document.getElementById('oPhone').value = "";
+    document.getElementById('oCustomer').value = "";
+    document.getElementById('oLoc').value = "";
+    document.getElementById('knownLocations').classList.add('hidden');
+    document.getElementById('moZone').value = "25"; 
+    
+    updateFeeUI(); 
+    document.getElementById('manualOrderModal').classList.remove('hidden');
+}
+        // --- SIMULATE ISSUE ---
+        async function simulateIssue(id) {
+            if(!(await showConfirmModal("Simulate Delivery Failure for this order?"))) return;
+            const order = vendorOrders.find(o => o.id === id);
+            if(!order) return;
+            
+            if(order.feePayer === 'vendor') {
+                const refundAmt = (order.revenue || 25) * 0.5;
+                wallet.unshift({ date: new Date().toLocaleDateString(), desc: `Refund: Failed Delivery ${id}`, amount: refundAmt, status: "Refunded" });
+                localStorage.setItem('balnova_vendor_wallet', JSON.stringify(wallet));
+                renderWallet(); updateStats();
+                showToast(`Refund of GHS ${refundAmt.toFixed(2)} Processed`);
+            } else {
+                showToast("Order Cancelled (No Refund for COD)");
+            }
+            order.status = "Failed / Returned";
+            localStorage.setItem('balnova_vendor_orders', JSON.stringify(vendorOrders));
+            renderOrders();
+        }
+
+        // --- SIMULATE RIDER PICKUP ---
+        async function simulateRiderPickup(orderId) {
+            if(!(await showConfirmModal("Simulate Rider Pickup & Photo Proof?"))) return;
+            const o = vendorOrders.find(v => v.id === orderId);
+            if(!o) return;
+            
+            const log = { orderId: orderId, item: o.item, time: new Date().toLocaleTimeString(), img: "https://via.placeholder.com/300?text=Proof+of+Pickup" };
+            qcLogs.unshift(log);
+            localStorage.setItem('balnova_qc_logs', JSON.stringify(qcLogs));
+            renderQC();
+            
+            o.status = "Rider En Route";
+            localStorage.setItem('balnova_vendor_orders', JSON.stringify(vendorOrders));
+            renderOrders();
+            
+            showToast("QC Proof Logged!");
+            switchTab('qc'); 
+        }
+
+        // --- PICKUP LOGIC ---
+        function confirmPickup() {
+            const pickup = document.getElementById('pickupLoc').value;
+            const drop = document.getElementById('dropLoc').value;
+            const notes = document.getElementById('pickupNotes').value;
+            const baseFee = parseInt(document.getElementById('puZone').value) || 25;
+            const codAmount = parseFloat(document.getElementById('puCash').value) || 0;
+
+            if(!drop) { showToast("Destination Required", "error"); return; }
+            
+            let finalFee = 0;
+            let transactionDesc = "";
+            let orderType = "Pickup";
+            
+            if (codAmount > 0) {
+                const commission = codAmount * 0.10;
+                const discountedDelivery = baseFee - 10;
+                finalFee = discountedDelivery + commission;
+                transactionDesc = `Sale Commission + Delivery`;
+                wallet.unshift({ date: new Date().toLocaleDateString(), desc: `COD Sale Revenue`, amount: codAmount, status: "Pending (Rider to Collect)" });
+                orderType = "Delivery (COD)";
+            } else {
+                finalFee = baseFee + 10; 
+                transactionDesc = `Premium Logistics Request`;
+            }
+            
+            wallet.unshift({ date: new Date().toLocaleDateString(), desc: transactionDesc, amount: -finalFee, status: "Paid" });
+            localStorage.setItem('balnova_vendor_wallet', JSON.stringify(wallet));
+            
+            const pickupObj = { 
+                id: "PKP-" + Date.now(), 
+                type: orderType, 
+                revenue: finalFee, 
+                volume: 15, 
+                item: notes || "Vendor Parcel", 
+                loc: pickup, 
+                dropLoc: drop, 
+                status: "Queued", 
+                timestamp: Date.now(),
+                codAmount: codAmount 
+            };
+            
+            let adminQ = JSON.parse(localStorage.getItem('balnova_admin_queue')) || [];
+            adminQ.push(pickupObj);
+            localStorage.setItem('balnova_admin_queue', JSON.stringify(adminQ));
+            
+            myPickups.unshift(pickupObj);
+            localStorage.setItem('balnova_vendor_pickups', JSON.stringify(myPickups));
+            
+            window.dispatchEvent(new Event('storage'));
+            document.getElementById('pickupModal').classList.add('hidden'); 
+            renderWallet(); renderPickups(); updateStats();
+            showToast("Request Sent!"); 
+        }
+
+        function updatePickupFee() {
+    const baseFee = parseInt(document.getElementById('puZone').value) || 25;
+    const receiverPays = document.getElementById('puReceiverPays').checked;
+    const sizeKey = document.getElementById('puSize').value;
+    
+    // Size Surcharge Logic
+    let surcharge = 0;
+    if (sizeKey === 'Microwave') surcharge = 10;
+    if (sizeKey === 'Bulky') surcharge = 20;
+    if (sizeKey === 'Oversize') surcharge = 50;
+
+    const totalFee = baseFee + surcharge;
+    
+    // UI Label Toggle
+    const note = document.getElementById('puWalletNote');
+    
+    if (receiverPays) {
+        note.innerText = "Fee collected by Rider upon delivery";
+        document.getElementById('puTotalFee').innerText = "0.00"; 
+    } else {
+        note.innerText = `Base ${baseFee} + Size Fee ${surcharge}`;
+        document.getElementById('puTotalFee').innerText = totalFee.toFixed(2);
+    }
+}
+        
+        // --- SIMULATE BOT ORDER ---
+        function simulateIncomingOrder() { 
+            const orderId = `ORD-${Date.now()}`; 
+            if(products.length === 0) return showToast("Add products first!", "error");
+            const p = products[Math.floor(Math.random() * products.length)];
+            const qty = Math.floor(Math.random() * 2) + 1; 
+            const revenue = p.price * qty;
+            const commission = revenue * 0.10;
+            const netRevenue = revenue - commission;
+            
+            // --- FIX: INITIAL STATUS PROCESSING ---
+            const newOrder = {
+                id: orderId, 
+                item: `${p.name} (x${qty})`, 
+                customer: "Bot Customer",
+                status: "Processing", 
+                destination: "Bot Location",
+                revenue: 25, 
+                volume: (parseInt(p.volume)||2) * qty,  
+                type: 'Delivery',
+                loc: p.hub || 'Vendor Location',
+                dropLoc: "Bot Location",
+                timestamp: Date.now()
+            };
+
+            let v = JSON.parse(localStorage.getItem('balnova_vendor_orders')) || []; 
+            v.unshift(newOrder); 
+            localStorage.setItem('balnova_vendor_orders', JSON.stringify(v)); 
+            
+            wallet.unshift({ date: new Date().toLocaleDateString(), desc: `Bot Sale: ${p.name} (x${qty}) - 10% Comm. Deducted`, amount: netRevenue, status: "Pending (Escrow)" });
+            localStorage.setItem('balnova_vendor_wallet', JSON.stringify(wallet));
+            renderWallet(); updateStats();
+
+            let adminQ = JSON.parse(localStorage.getItem('balnova_admin_queue')) || [];
+            adminQ.push({ ...newOrder, status: 'Processing' }); // Push as Processing to Admin too
+            localStorage.setItem('balnova_admin_queue', JSON.stringify(adminQ));
+
+            showToast(`New Order for ${p.name}! Pack it now!`); 
+            renderOrders(); 
+        }        
+        
+        // --- IMAGE HANDLING ---
+        function handleImageSelect(input) { 
+            if (tempImages.length + input.files.length > 10) return showToast("Max 10 images", "error"); 
+            Array.from(input.files).forEach(f => { 
+                const r = new FileReader(); r.onload = e => { resizeImage(e.target.result, (res) => { tempImages.push(res); renderMainImages(); }); }; r.readAsDataURL(f); 
+            }); 
+        }
+        function renderMainImages() {
+            const grid = document.getElementById('uploadGrid'); grid.innerHTML = '';
+            tempImages.forEach((img, idx) => {
+                const d = document.createElement('div'); d.className = 'relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group';
+                d.innerHTML = `<img src="${img}" class="w-full h-full object-cover"><button type="button" onclick="removeMainImage(${idx})" class="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-md"><i class="fa-solid fa-times"></i></button>`;
+                grid.appendChild(d);
+            });
+            const label = document.createElement('label'); label.className = "w-20 h-20 flex flex-col items-center justify-center border border-brand-blue/30 text-brand-blue dark:text-brand-orange rounded-lg cursor-pointer bg-white dark:bg-gray-800 hover:bg-brand-orange/10 transition-colors"; label.innerHTML = `<input type="file" accept="image/*" multiple onchange="handleImageSelect(this)" class="hidden"><i class="fa-solid fa-camera mb-1"></i><span class="text-[10px] font-bold">ADD</span>`; grid.appendChild(label); document.getElementById('imgCount').innerText = `${tempImages.length}/10`;
+        }
+        function removeMainImage(idx) { tempImages.splice(idx, 1); renderMainImages(); }
+
+        // --- VARIANT LOGIC ---
+        function handleVariantImages(input) {
+            if (tempVariantImages.length + input.files.length > 10) return showToast("Max 10 Variant Images", "error");
+            Array.from(input.files).forEach(f => { const r = new FileReader(); r.onload = e => { resizeImage(e.target.result, (res) => { tempVariantImages.push(res); renderVariantImages(); }); }; r.readAsDataURL(f); });
+        }
+        function renderVariantImages() {
+            const grid = document.getElementById('vUploadGrid'); grid.innerHTML = '';
+            tempVariantImages.forEach((img, idx) => {
+                const d = document.createElement('div'); d.className = 'relative w-12 h-12 rounded border border-gray-300 overflow-hidden group';
+                d.innerHTML = `<img src="${img}" class="w-full h-full object-cover"><button type="button" onclick="removeVariantImage(${idx})" class="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100"><i class="fa-solid fa-times"></i></button>`;
+                grid.appendChild(d);
+            });
+            const label = document.createElement('label'); label.className = "w-12 h-12 flex flex-col items-center justify-center border border-gray-300 dark:border-gray-600 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 bg-white dark:bg-gray-800"; label.innerHTML = `<input type="file" accept="image/*" multiple onchange="handleVariantImages(this)" class="hidden"><i class="fa-solid fa-plus text-xs text-gray-400"></i>`; grid.appendChild(label);
+        }
+        
+        function removeVariantImage(idx) { tempVariantImages.splice(idx, 1); renderVariantImages(); }
+        function resizeImage(b,c) { const i=new Image(); i.src=b; i.onload=()=>{ const k=document.createElement('canvas'), m=600; let w=i.width,h=i.height; if(w>h){if(w>m){h*=m/w;w=m}}else{if(h>m){w*=m/h;h=m}} k.width=w; k.height=h; k.getContext('2d').drawImage(i,0,0,w,h); c(k.toDataURL('image/jpeg',0.7)); } }
+        
+        function addVariant() { 
+            const c = document.getElementById('vColor').value.trim(); const q = document.getElementById('vStock').value; 
+            if (!c) return showToast("Color/Size required", "error"); if (!q) return showToast("Quantity required", "error"); if (tempVariantImages.length < 3) return showToast("Min 3 images for variant", "error");
+            tempVariants.push({ color: c, stock: parseInt(q), images: [...tempVariantImages] }); 
+            const d = document.createElement('div'); d.className = 'bg-gray-100 dark:bg-gray-700 p-2 rounded flex items-center gap-3 border border-gray-300 dark:border-gray-600 justify-between'; d.innerHTML = `<div class="flex items-center gap-3"><div class="flex -space-x-2 overflow-hidden"><img src="${tempVariantImages[0]}" class="w-8 h-8 rounded-full border-2 border-white"><span class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-[10px] border-2 border-white">+${tempVariantImages.length}</span></div><div><div class="text-sm font-bold dark:text-white">${c}</div><div class="text-xs text-gray-500">Qty: ${q}</div></div></div><button type="button" class="text-red-500" onclick="this.parentElement.remove()">&times;</button>`; 
+            document.getElementById('variantList').appendChild(d); document.getElementById('vColor').value = ''; document.getElementById('vStock').value = ''; tempVariantImages = []; renderVariantImages(); 
+        }
+        
+        function updateTierUI() {
+            const tiers = {1: 'TIER 1 (STARTER)', 2: 'TIER 2 (GROWTH)', 3: 'TIER 3 (EMPIRE)'};
+            document.getElementById('sidebarTierBadge').innerText = tiers[vendorTier];
+            if(vendorTier >= 3) { document.getElementById('teamTabContainer').innerHTML = `<button onclick="switchTab('team')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 text-left text-gray-300 hover:text-white group"><i class="fa-solid fa-users w-6 text-center group-hover:text-brand-orange"></i> Team Access</button>`; renderTeam(); }
+            else document.getElementById('teamTabContainer').innerHTML = `<button onclick="document.getElementById('tier3Modal').classList.remove('hidden')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 text-left text-gray-500 cursor-not-allowed locked-feature"><i class="fa-solid fa-users-gear w-6 text-center"></i> Team Access <div class="lock-icon"><i class="fa-solid fa-lock"></i></div></button>`;
+            
+            const pulse = document.getElementById('headerPulseBtn');
+            const analyst = document.getElementById('aiDashboardSection');
+            const aiBtn = document.getElementById('aiWriteBtn');
+            const topShelf = document.getElementById('topShelfToggle');
+            
+            if(vendorTier >= 2) {
+                pulse.innerHTML = `<button onclick="generateMarketPulse()" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-brand-orange/10 text-brand-orange rounded-full hover:bg-brand-orange/20 transition-colors text-xs font-bold"><i class="fa-solid fa-bolt"></i> Market Pulse</button>`;
+                analyst.classList.remove('hidden');
+                if(aiBtn) { aiBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Write'; aiBtn.classList.remove('text-gray-400'); aiBtn.classList.add('text-brand-orange'); }
+            } else {
+                pulse.innerHTML = `<button onclick="document.getElementById('tier2Modal').classList.remove('hidden')" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-500 rounded-full hover:bg-gray-200 transition-colors text-xs font-bold border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400"><i class="fa-solid fa-bolt text-brand-orange"></i> Market Pulse <i class="fa-solid fa-lock text-[8px] ml-1"></i></button>`;
+                analyst.classList.add('hidden');
+                if(aiBtn) { aiBtn.innerHTML = '<i class="fa-solid fa-lock text-[8px]"></i> AI Write'; aiBtn.classList.add('text-gray-400'); aiBtn.classList.remove('text-brand-orange'); }
+            }
+
+            if(topShelf) {
+                if(vendorTier >= 3) {
+                    topShelf.classList.remove('opacity-75', 'cursor-not-allowed');
+                    topShelf.innerHTML = `<div class="flex items-center gap-3"><div class="w-10 h-6 bg-brand-orange rounded-full relative transition-colors"><div class="w-4 h-4 bg-white rounded-full absolute top-1 right-1 shadow-sm"></div></div><div><div class="font-bold text-sm text-gray-800 dark:text-white flex items-center gap-2">Promote to Top Shelf <i class="fa-solid fa-check text-[10px] text-brand-orange"></i></div><div class="text-[10px] text-gray-500">2x Visibility on Marketplace</div></div></div><span class="text-[10px] font-bold text-brand-blue bg-brand-orange px-2 py-1 rounded">ACTIVE</span>`;
+                } else {
+                    topShelf.classList.add('opacity-75', 'cursor-not-allowed');
+                    topShelf.innerHTML = `<div class="flex items-center gap-3"><div class="w-10 h-6 bg-gray-300 rounded-full relative"><div class="w-4 h-4 bg-white rounded-full absolute top-1 left-1"></div></div><div><div class="font-bold text-sm text-gray-800 dark:text-white flex items-center gap-2">Promote to Top Shelf <i class="fa-solid fa-lock text-[8px] text-brand-orange"></i></div><div class="text-[10px] text-gray-500">2x Visibility on Marketplace</div></div></div><span class="text-[10px] font-bold text-brand-orange bg-brand-orange/10 px-2 py-1 rounded">EMPIRE PLAN</span>`;
+                }
+            }
+        }
+        
+        function setTier(t) { vendorTier = t; localStorage.setItem('vendor_tier', t); updateTierUI(); showToast(`Switched to Tier ${t}`); }
+        function renderTeam() { const list = document.getElementById('teamList'); if(!list) return; list.innerHTML = ''; if(staff.length === 0) list.innerHTML = `<div class="text-gray-400 text-sm text-center py-4">No staff added yet.</div>`; staff.forEach((s, idx) => { list.innerHTML += `<div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg flex justify-between items-center border border-gray-200 dark:border-gray-600"><div><div class="font-bold text-sm dark:text-white">${s.name}</div><div class="text-xs text-gray-500">${s.role}</div></div><button onclick="removeStaff(${idx})" class="text-red-500 text-xs hover:text-red-700"><i class="fa-solid fa-trash"></i></button></div>`; }); }
+        async function addStaff() { const n=await showInputModal("Staff Name:"); if(n) { staff.push({name:n, role:'Clerk'}); localStorage.setItem('balnova_vendor_staff', JSON.stringify(staff)); renderTeam(); showToast("Staff Added"); } }
+        async function removeStaff(idx) { if(await showConfirmModal("Remove?")) { staff.splice(idx, 1); localStorage.setItem('balnova_vendor_staff', JSON.stringify(staff)); renderTeam(); } }
+        
+        function renderHubs() { 
+            const list = document.getElementById('hubList'); if(!list) return; list.innerHTML = ''; 
+            hubs.forEach((h, i) => { 
+                let actions = '';
+                if (vendorTier < 3 && i === 0) {
+                    actions = `<button onclick="editHubLocation(${i})" class="text-gray-400 hover:text-brand-orange p-1"><i class="fa-solid fa-pen"></i></button>`;
+                } 
+                else if (vendorTier >= 3) {
+                      actions = `<button onclick="editHubLocation(${i})" class="text-gray-400 hover:text-brand-orange mr-2"><i class="fa-solid fa-pen"></i></button><button onclick="removeHub(${i})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>`;
+                }
+                
+                list.innerHTML += `<div class="bg-gray-100 dark:bg-gray-700 p-2 rounded flex justify-between items-center mb-2"><span class="text-sm dark:text-white">${h}</span><div class="flex items-center">${actions}<span class="text-xs text-green-500 ml-2">Active</span></div></div>`; 
+            });
+            
+            const addBtn = document.getElementById('btnAddHub');
+            if(addBtn) {
+                if(vendorTier < 3 && hubs.length >= 1) addBtn.classList.add('hidden');
+                else addBtn.classList.remove('hidden');
+            }
+        }
+
+        async function editHubLocation(idx) {
+            const lastChange = localStorage.getItem('balnova_hub_last_change');
+            const now = Date.now();
+            const cooldown = 30 * 24 * 60 * 60 * 1000; 
+
+            if (lastChange && (now - lastChange < cooldown) && vendorTier < 3) {
+                const remaining = Math.ceil((cooldown - (now - lastChange)) / (1000 * 60 * 60 * 24));
+                return showToast(`Cooldown active. Try again in ${remaining} days.`, "error");
+            }
+
+            const newLoc = await showInputModal("Enter new Hub Location:", hubs[idx]);
+            if (newLoc && newLoc !== hubs[idx]) {
+                hubs[idx] = newLoc;
+                localStorage.setItem('balnova_vendor_hubs', JSON.stringify(hubs));
+                
+                if(vendorTier < 3) {
+                    localStorage.setItem('balnova_hub_last_change', now);
+                }
+                
+                renderHubs();
+                updateHubDropdowns();
+                showToast("Hub Relocated Successfully");
+            }
+        }
+
+        async function removeHub(idx) {
+            if(await showConfirmModal("Remove this hub?")) {
+                hubs.splice(idx, 1);
+                localStorage.setItem('balnova_vendor_hubs', JSON.stringify(hubs));
+                renderHubs();
+                updateHubDropdowns();
+            }
+        }
+
+        async function addHub() { const n=await showInputModal("Hub Name:"); if(n) { hubs.push(n); localStorage.setItem('balnova_vendor_hubs', JSON.stringify(hubs)); renderHubs(); showToast("Hub Added"); } }
+        function updateHubDropdowns() { const opts = hubs.map(h => `<option value="${h}">${h}</option>`).join(''); document.getElementById('pHub').innerHTML = opts; }
+        
+        function editCurrentProduct() { 
+    closeDetailModal(); 
+    const p = products.find(prod => prod.id === currentViewId); if(!p) return; 
+    document.getElementById('modalTitle').innerText = "Edit Product"; 
+    document.getElementById('editId').value = p.id; 
+    document.getElementById('pName').value = p.name; 
+    document.getElementById('pBrand').value = p.brand; 
+    document.getElementById('pPrice').value = p.price; 
+    document.getElementById('pStock').value = p.baseStock; 
+    document.getElementById('pDesc').value = p.desc; 
+    document.getElementById('pResell').checked = p.reseller; 
+    
+    // Set Category if it exists, otherwise guess based on volume (Legacy Support)
+    if (p.category) {
+        document.getElementById('pCategory').value = p.category; 
+    } else {
+        // Fallback for old items without category
+        let guess = 'Other';
+        if(p.volume <= 2) guess = 'Phone';
+        else if(p.volume <= 10) guess = 'Shoe';
+        else if(p.volume <= 15) guess = 'Laptop';
+        document.getElementById('pCategory').value = guess;
+    }
+
+    tempImages = p.images || []; 
+    tempVariants = p.variants ? p.variants.map(v => ({...v, images: v.images || [v.image] })) : [];
+    renderMainImages();
+    document.getElementById('variantList').innerHTML = ''; 
+    tempVariants.forEach((v) => { 
+        const d = document.createElement('div'); d.className = 'bg-gray-100 dark:bg-gray-700 p-2 rounded flex items-center gap-3 border border-gray-300 dark:border-gray-600 justify-between'; 
+        const imgCount = v.images ? v.images.length : 1; const vImg = (v.images && v.images.length > 0) ? v.images[0] : (v.image || '');
+        d.innerHTML = `<div class="flex items-center gap-3"><div class="flex -space-x-2 overflow-hidden"><img src="${vImg}" class="w-8 h-8 rounded-full border-2 border-white"><span class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-[10px] border-2 border-white">+${imgCount}</span></div><div><div class="text-sm font-bold dark:text-white">${v.color}</div><div class="text-xs text-gray-500">Qty: ${v.stock}</div></div></div><button type="button" class="text-red-500" onclick="this.parentElement.remove();">&times;</button>`; 
+        document.getElementById('variantList').appendChild(d); 
+    }); 
+    document.getElementById('productModal').classList.remove('hidden'); 
+}
+        
+        async function resetVendorSystem() { if(await showConfirmModal("Wipe ALL Vendor Data? (Wallet, Inventory, Orders)")) { localStorage.removeItem('balnova_vendor_wallet'); localStorage.removeItem('balnova_inventory'); localStorage.removeItem('balnova_vendor_orders'); localStorage.removeItem('balnova_vendor_pickups'); localStorage.removeItem('balnova_vendor_staff'); localStorage.removeItem('balnova_vendor_hubs'); location.reload(); } }
+
+        function loadProducts() { 
+            const t = document.getElementById('inventoryTableBody'); t.innerHTML = '';
+            if (!products.length) { document.getElementById('emptyState').classList.remove('hidden'); document.getElementById('emptyState').classList.add('flex'); return; }
+            document.getElementById('emptyState').classList.add('hidden'); document.getElementById('emptyState').classList.remove('flex');
+            products.forEach(p => { 
+                const vStock = p.variants ? p.variants.reduce((a,b)=>a+(b.stock||0),0) : 0; 
+                const tStock = (p.baseStock || 0) + vStock; 
+                const img = (p.images && p.images[0]) ? p.images[0] : '';
+                t.innerHTML += `
+                    <tr class="hover:bg-gray-5 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700">
+                        <td class="p-4 cursor-pointer" onclick="viewProduct(${p.id})">
+                            <div class="flex items-center gap-3">
+                                <img src="${img}" class="w-12 h-12 rounded-lg object-cover bg-gray-100">
+                                <div><div class="font-bold dark:text-white">${p.name}</div><div class="text-xs text-gray-500">${p.hub || 'Main'}</div></div>
+                            </div>
+                        </td>
+                        <td class="p-4 text-xs font-mono text-gray-500">Vol: ${p.volume || 15}</td>
+                        <td class="p-4 font-mono dark:text-gray-300">GHS ${p.price.toFixed(2)}</td>
+                        <td class="p-4"><span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full border border-blue-200">${tStock} Total</span></td>
+                        <td class="p-4 text-right flex gap-2 justify-end">
+                            <button onclick="openManualOrder(${p.id})" class="bg-green-100 text-green-700 hover:bg-green-200 p-2 rounded-lg text-xs font-bold" title="Sell / Ship"><i class="fa-solid fa-cart-plus"></i> Sell</button>
+                            <button onclick="deleteProduct(${p.id})" class="text-red-500 hover:bg-red-50 p-2 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`; 
+            });
+            updateStats();
+        }
+
+        // --- NEW JS: SMART CUSTOMER LOOKUP ---
+function lookupCustomer(phone) {
+    if (phone.length < 10) return; // Wait for full number
+
+    // 1. ACCESS SHARED DATABASE (Simulation)
+    // In production, this is an API call: GET /api/customer/{phone}
+    const regionKey = `balnova_customers_${localStorage.getItem('balnova_active_region') || 'GH'}`;
+    const db = JSON.parse(localStorage.getItem(regionKey)) || {};
+    const profile = db[phone];
+
+    const locDiv = document.getElementById('knownLocations');
+    const btnDiv = document.getElementById('locationButtons');
+    const nameInput = document.getElementById('oCustomer');
+
+    if (profile) {
+        // 2. AUTO-FILL NAME
+        nameInput.value = profile.name;
+        
+        // 3. SHOW ADDRESS CHIPS
+        if (profile.addresses && profile.addresses.length > 0) {
+            locDiv.classList.remove('hidden');
+            btnDiv.innerHTML = profile.addresses.map((addr, idx) => `
+                <button type="button" onclick="selectAddress('${addr.rawString}', '${addr.tag}', ${addr.verified})" 
+                    class="px-3 py-1 text-[10px] rounded-full border ${addr.verified ? 'bg-green-100 border-green-300 text-green-700' : 'bg-gray-100 border-gray-300 text-gray-600'} hover:scale-105 transition">
+                    ${addr.verified ? '<i class="fa-solid fa-circle-check"></i>' : ''} ${addr.tag}
+                </button>
+            `).join('');
+            
+            showToast(`found ${profile.name} with ${profile.addresses.length} saved locations.`, "success");
+        }
+    } else {
+        locDiv.classList.add('hidden');
+    }
+}
+
+// --- NEW: SMART PICKUP LOGIC ---
+
+// 1. Address Lookup for Pickups
+function lookupPickupContact(phone) {
+    if (phone.length < 10) return;
+    
+    document.getElementById('puLoader').classList.remove('hidden');
+
+    // Access Shared DB
+    const region = localStorage.getItem('balnova_active_region') || 'GH';
+    const dbKey = `balnova_customers_${region}`;
+    const db = JSON.parse(localStorage.getItem(dbKey)) || {};
+    const profile = db[phone];
+
+    const locDiv = document.getElementById('puKnownLocs');
+    const btnDiv = document.getElementById('puLocButtons');
+    
+    setTimeout(() => { // Fake network delay
+        document.getElementById('puLoader').classList.add('hidden');
+        
+        if (profile && profile.addresses && profile.addresses.length > 0) {
+            locDiv.classList.remove('hidden');
+            btnDiv.innerHTML = profile.addresses.map(addr => `
+                <button type="button" onclick="setPickupDest('${addr.rawString}')" 
+                    class="px-2 py-1 text-[10px] rounded border bg-white dark:bg-gray-700 dark:text-white hover:border-brand-blue transition">
+                    <i class="fa-solid fa-map-pin text-brand-blue"></i> ${addr.tag}
+                </button>
+            `).join('');
+            showToast(`Found ${profile.name}!`);
+        } else {
+            locDiv.classList.add('hidden');
+        }
+    }, 500);
+}
+
+function setPickupDest(loc) {
+    document.getElementById('dropLoc').value = loc;
+    // Highlight the field briefly
+    const el = document.getElementById('dropLoc');
+    el.classList.add('ring-2', 'ring-brand-blue');
+    setTimeout(() => el.classList.remove('ring-2', 'ring-brand-blue'), 1000);
+}
+
+// 2. Fee Calculation UI
+function updatePickupFee() {
+    const baseFee = parseInt(document.getElementById('puZone').value) || 25;
+    const receiverPays = document.getElementById('puReceiverPays').checked;
+    const codAmount = parseFloat(document.getElementById('puCash').value) || 0;
+    
+    // UI Label Toggle
+    const label = document.getElementById('puPayerLabel');
+    const note = document.getElementById('puWalletNote');
+    
+    if (receiverPays) {
+        label.innerText = "Receiver Pays (COD)";
+        label.className = "ml-2 text-[10px] font-bold text-brand-blue";
+        // Logic: Even if receiver pays, we might HOLD funds from vendor first.
+        // For simplicity in this demo: Vendor pays 0 now, Rider collects from Receiver.
+        // BUT we need a 'Trust Hold' if Trust Score < 80%. Let's keep it simple:
+        note.innerText = "Fee collected by Rider upon delivery";
+        document.getElementById('puTotalFee').innerText = "0.00"; 
+    } else {
+        label.innerText = "Vendor (Prepaid)";
+        label.className = "ml-2 text-[10px] font-medium text-gray-500 dark:text-gray-400";
+        note.innerText = "Deducted from Wallet immediately";
+        document.getElementById('puTotalFee').innerText = baseFee.toFixed(2);
+    }
+}
+
+// 3. Submit Logic (The "Black Box" Manifest)
+function confirmPickup() {
+    const pickup = document.getElementById('pickupLoc').value;
+    const drop = document.getElementById('dropLoc').value;
+    const phone = document.getElementById('puPhone').value;
+    const notes = document.getElementById('pickupNotes').value;
+    
+    // Get Size & VU
+    const sizeKey = document.getElementById('puSize').value;
+    const vuData = VU_CONFIG[sizeKey];
+    
+    const receiverPays = document.getElementById('puReceiverPays').checked;
+    const codAmount = parseFloat(document.getElementById('puCash').value) || 0;
+
+    // Calculate final fee
+    const baseFee = parseInt(document.getElementById('puZone').value) || 25;
+    let surcharge = 0;
+    if (sizeKey === 'Microwave') surcharge = 10;
+    if (sizeKey === 'Bulky') surcharge = 20;
+    if (sizeKey === 'Oversize') surcharge = 50;
+    const finalFee = baseFee + surcharge;
+
+    if(!drop) { showToast("Destination Required", "error"); return; }
+    
+    // --- 1. DETERMINE ACTIVE REGION ---
+    // This is critical for routing the money to the correct country's books
+    const activeRegion = localStorage.getItem('balnova_active_region') || 'GH';
+    
+    // --- FINANCIALS ---
+    let walletDeduction = 0;
+    let riderInstruction = "";
+    
+    // We need to update the Regional Wallet, NOT just the local display wallet
+    const regionWalletKey = `balnova_vendor_wallet_${activeRegion}`;
+    let regionalWallet = JSON.parse(localStorage.getItem(regionWalletKey)) || [];
+
+    if (receiverPays) {
+        walletDeduction = 0; 
+        const totalToCollect = finalFee + codAmount;
+        riderInstruction = `Collect GHS ${totalToCollect.toFixed(2)} (Fee+Item)`;
+        
+        if (codAmount > 0) {
+             // Record pending COD in regional wallet
+             const tx = { 
+                 date: new Date().toLocaleDateString(), 
+                 desc: `COD Pending: ${notes}`, 
+                 amount: codAmount, 
+                 status: "Pending" 
+             };
+             wallet.unshift(tx); // Update UI
+             regionalWallet.unshift(tx); // Update Regional DB
+        }
+    } else {
+        walletDeduction = finalFee;
+        riderInstruction = codAmount > 0 ? `Collect GHS ${codAmount.toFixed(2)}` : "No Cash Collection";
+        
+        if (codAmount > 0) {
+             const tx = { 
+                 date: new Date().toLocaleDateString(), 
+                 desc: `COD Pending: ${notes}`, 
+                 amount: codAmount, 
+                 status: "Pending" 
+             };
+             wallet.unshift(tx);
+             regionalWallet.unshift(tx);
+        }
+    }
+
+    // CHECK BALANCE & DEDUCT
+    if (walletDeduction > 0) {
+         // Check local balance (UI sync)
+         const balance = wallet.filter(t => t.status === "Released" || t.status === "Paid").reduce((sum, t) => sum + t.amount, 0);
+         if (balance < walletDeduction) return showToast("Insufficient Wallet Balance", "error");
+         
+         const expenseTx = { 
+             date: new Date().toLocaleDateString(), 
+             desc: `Logistics Request: ${sizeKey} to ${drop}`, 
+             amount: -walletDeduction, 
+             status: "Paid" // This status tells Admin it's Realized Revenue
+         };
+         
+         wallet.unshift(expenseTx); // Update Local UI
+         regionalWallet.unshift(expenseTx); // Update Regional DB (Admin sees this)
+    }
+
+    // Save the regional wallet back to storage
+    localStorage.setItem(regionWalletKey, JSON.stringify(regionalWallet));
+    // Save local wallet for UI persistence
+    localStorage.setItem('balnova_vendor_wallet', JSON.stringify(wallet));
+
+    // --- CREATE ORDER OBJECT ---
+    const orderId = "PKP-" + Date.now();
+    const pickupObj = { 
+        id: orderId, 
+        type: receiverPays ? "Delivery (COD)" : "Pickup (Prepaid)", 
+        revenue: finalFee, 
+        volume: vuData.vu, 
+        item: notes || `Pickup: ${vuData.label}`, 
+        loc: pickup, 
+        dropLoc: drop, 
+        status: "Ready for Pickup", // Triggers Admin Auto-Sorter
+        timestamp: Date.now(),
+        customerPhone: phone, 
+        riderNote: riderInstruction,
+        feePayer: receiverPays ? 'customer' : 'vendor',
+        originRegion: activeRegion,
+        vendorTier: localStorage.getItem('vendor_tier') || '1' 
+    };
+    
+    // --- PUSH TO REGIONAL ADMIN QUEUE ---
+    const adminKey = `balnova_admin_queue_${activeRegion}`;
+    let adminQ = JSON.parse(localStorage.getItem(adminKey)) || [];
+    adminQ.push(pickupObj);
+    localStorage.setItem(adminKey, JSON.stringify(adminQ));
+    
+    // Save to local pickups
+    myPickups.unshift(pickupObj);
+    localStorage.setItem('balnova_vendor_pickups', JSON.stringify(myPickups));
+    
+    // UI Cleanup
+    window.dispatchEvent(new Event('storage'));
+    document.getElementById('pickupModal').classList.add('hidden'); 
+    renderWallet(); 
+    updateStats();
+    showToast(`Request Sent to ${activeRegion} HQ!`); 
+}
+
+function selectAddress(addressText, tag, isVerified) {
+    const locInput = document.getElementById('oLoc');
+    locInput.value = addressText;
+    
+    // Visual Feedback
+    const hint = document.getElementById('locHint');
+    if (isVerified) {
+        locInput.classList.add('border-green-500', 'ring-1', 'ring-green-500');
+        hint.innerHTML = `<span class="text-green-500 font-bold"><i class="fa-solid fa-satellite"></i> Verified Pin Locked (${tag})</span>`;
+    } else {
+        locInput.classList.remove('border-green-500', 'ring-1', 'ring-green-500');
+        hint.innerText = `Using saved history: ${tag}`;
+    }
+}
+function updateStats() {
+    const availableFunds = wallet.filter(t => t.status === "Released" || t.status === "Paid").reduce((sum, t) => sum + t.amount, 0);
+    const totalRev = wallet.reduce((sum, t) => sum + t.amount, 0); 
+    document.getElementById('totalRevenue').innerText = totalRev.toFixed(2); 
+    document.getElementById('walletBalanceDisplay').innerText = availableFunds.toFixed(2); 
+    document.getElementById('totalProducts').innerText = products.length;
+    const invVal = products.reduce((acc, p) => acc + (p.price * (p.baseStock + (p.variants ? p.variants.reduce((s,v)=>s+parseInt(v.stock||0),0) : 0))), 0);
+    document.getElementById('inventoryValue').innerText = invVal.toFixed(2);
+
+    // --- TRUST SCORE ALGORITHM ---
+    const totalOrders = vendorOrders.length;
+    // Count "Bad" outcomes (Failures, Returns, Mismatches)
+    const failures = vendorOrders.filter(o => o.status.includes('Fail') || o.status.includes('Return') || o.status.includes('Reject')).length;
+    
+    // Starting Score is 100. Deduct 10 points per failure.
+    // (In a real app, successful orders would add points back).
+    let trustScore = 100 - (failures * 10);
+    if (trustScore < 0) trustScore = 0;
+
+    // --- UPDATE SIDEBAR UI ---
+    const tBar = document.getElementById('trustBar');
+    const tVal = document.getElementById('trustScoreVal');
+    const tLane = document.getElementById('laneBadge');
+
+    if (tBar && tVal && tLane) {
+        tBar.style.width = `${trustScore}%`;
+        tVal.innerText = `${trustScore}%`;
+
+        // Logic Fork: Green Lane vs. Red Lane
+        if (trustScore >= 80) {
+            // GREEN LANE (Fast)
+            tBar.className = "bg-green-500 h-full transition-all duration-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]";
+            tVal.className = "font-bold text-green-400";
+            tLane.innerHTML = '<i class="fa-solid fa-gauge-high"></i> Green Lane (Fast)';
+            tLane.className = "w-full text-[9px] text-center bg-green-500/10 text-green-400 border border-green-500/30 rounded py-1 font-bold uppercase tracking-wider transition-all";
+            localStorage.setItem('balnova_vendor_lane', 'GREEN');
+        } else {
+            // RED LANE (Audit)
+            tBar.className = "bg-red-500 h-full transition-all duration-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]";
+            tVal.className = "font-bold text-red-500 animate-pulse";
+            tLane.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Red Lane (Audit)';
+            tLane.className = "w-full text-[9px] text-center bg-red-500/10 text-red-500 border border-red-500/30 rounded py-1 font-bold uppercase tracking-wider transition-all";
+            localStorage.setItem('balnova_vendor_lane', 'RED');
+        }
+    }
+
+    // --- FILL RATE CALCULATION (Header Badge) ---
+    const success = vendorOrders.filter(o => o.status === 'Delivered' || o.status === 'Completed').length;
+    const closed = success + failures;
+    let fillRate = 100;
+    if (closed > 0) fillRate = Math.round((success / closed) * 100);
+
+    const syncBadge = document.querySelector('.text-green-500.font-medium');
+    if(syncBadge) {
+        let color = fillRate >= 90 ? 'text-green-500' : (fillRate >= 70 ? 'text-yellow-500' : 'text-red-500');
+        syncBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span> Reliability: <span class="${color} font-bold">${fillRate}%</span>`;
+    }
+}
+
+        function renderWallet() { const tb = document.getElementById('walletTableBody'); tb.innerHTML = ''; wallet.forEach(t => { const color = t.amount > 0 ? 'text-green-500' : 'text-red-500'; tb.innerHTML += `<tr><td class="p-4 text-gray-500">${t.date}</td><td class="p-4 font-bold dark:text-white">${t.desc}</td><td class="p-4 font-mono ${color} font-bold">${t.amount.toFixed(2)}</td><td class="p-4 text-xs text-gray-400">${t.status}</td></tr>`; }); }
+
+        // --- UPDATED RENDER ORDERS (Merged Hotfix v3.3.1) ---
+function renderOrders() {
+    const tb = document.getElementById('ordersTableBody'); 
+    if(!tb) return;
+    
+    tb.innerHTML = '';
+    
+    if(vendorOrders.length === 0) { 
+        tb.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">No active orders</td></tr>`; 
+        return; 
+    }
+    
+    vendorOrders.forEach(o => {
+        // 1. DETECT EXPORT STATUS
+        const isExport = o.type === 'Export' || o.type === 'Import' || (o.isExportable === true);
+        
+        let badge = "bg-yellow-100 text-yellow-800";
+        let actionBtn = "";
+        let rowClass = "hover:bg-gray-5 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700";
+
+        // 2. SPECIAL EXPORT STYLING
+        if (isExport) {
+            rowClass += " bg-blue-50/50 dark:bg-blue-900/10"; 
+        }
+
+        if(o.status.includes("Processing")) { 
+            badge = "bg-blue-100 text-blue-800 animate-pulse"; 
+            actionBtn = `<button onclick="markReady('${o.id}')" class="bg-brand-orange text-brand-blue px-3 py-1 rounded text-xs font-bold hover:bg-yellow-400 shadow-sm animate-bounce">📦 Mark Packed</button>`; 
+        }
+        else if(o.status.includes("Ready")) { 
+            badge = "bg-green-100 text-green-800"; 
+            actionBtn = `<button onclick="simulateRiderPickup('${o.id}')" class="text-brand-blue text-[10px] border border-brand-blue px-2 py-1 rounded hover:bg-blue-50"><i class="fa-solid fa-camera"></i> Sim. Pickup</button>`; 
+        }
+        else if(o.status.includes("Rider") || o.status.includes("En Route")) { 
+            badge = "bg-green-100 text-green-800"; 
+            actionBtn = `<button onclick="simulateIssue('${o.id}')" class="text-red-400 text-[10px] border border-red-200 px-2 py-1 rounded hover:bg-red-50">Simulate Issue</button>`; 
+        }
+        else if(o.status.includes("Failed") || o.status.includes("Returned")) {
+            badge = "bg-red-100 text-red-800";
+            actionBtn = `<span class="text-[9px] text-red-500 font-bold border border-red-200 bg-red-50 px-2 py-1 rounded"><i class="fa-solid fa-triangle-exclamation"></i> Storage Fees</span>`;
+        }
+        else { 
+            badge = "bg-gray-100 text-gray-600"; 
+            actionBtn = `<span class="text-xs text-gray-400">Completed</span>`; 
+        }
+        
+        // 3. INJECT BADGE
+        const destBadge = isExport 
+            ? `<div class="flex items-center gap-1 text-xs font-black text-brand-blue dark:text-blue-300"><i class="fa-solid fa-plane-departure"></i> ${o.destRegion || 'INTL'} EXPORT</div>` 
+            : `<div class="text-xs">${o.destination || 'Local'}</div>`;
+
+        tb.innerHTML += `
+            <tr class="${rowClass}">
+                <td class="p-4 font-mono text-xs text-gray-500">${o.id}</td>
+                <td class="p-4 font-bold dark:text-white">
+                    ${o.item}
+                    ${isExport ? '<br><span class="text-[9px] text-red-500 uppercase font-bold">⚠️ Double Pack Required</span>' : ''}
+                </td>
+                <td class="p-4">
+                    ${destBadge}
+                    <div class="text-[10px] text-gray-400">${o.feePayer==='vendor'?'Prepaid':'COD'} | GHS ${o.revenue || 25} Fee</div>
+                </td>
+                <td class="p-4"><span class="${badge} px-2 py-1 rounded text-xs font-bold">${o.status}</span></td>
+                <td class="p-4 text-right">${actionBtn}</td>
+            </tr>`; 
+    });
+    
+    document.getElementById('pendingOrderCount').innerText = vendorOrders.filter(o=>o.status==="Processing").length;
+}
+
+        function renderPickups() {}
+
+        async function deleteProduct(id) { if(await showConfirmModal('Delete?')) { products=products.filter(p=>p.id!==id); localStorage.setItem('balnova_inventory', JSON.stringify(products)); loadProducts(); } }
+        function saveApiKey() { localStorage.setItem('gemini_api_key', document.getElementById('apiKeyInput').value); apiKey = document.getElementById('apiKeyInput').value; showToast("API Key Saved"); }
+        function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.setItem('vendor_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); }
+        function showToast(m, t='success') { const d=document.createElement('div'); d.className=`${t==='success'?'bg-brand-blue':'bg-red-600'} text-white px-4 py-3 rounded-lg shadow-lg fixed top-5 right-5 z-[70]`; d.innerHTML=`<span>${m}</span>`; document.body.appendChild(d); setTimeout(()=>d.remove(),3000); }
+        function switchTab(n) { document.querySelectorAll('.tab-section').forEach(e=>e.classList.add('hidden')); document.getElementById(`section-${n}`).classList.remove('hidden'); }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('sidebarOverlay').classList.toggle('hidden'); }
+        function showLockModal(t) { if(t===2) document.getElementById('tier2Modal').classList.remove('hidden'); if(t===3) document.getElementById('tier3Modal').classList.remove('hidden'); }
+        
+        function viewProduct(id) {
+            currentViewId = id;
+            const p = products.find(prod => prod.id === id); if(!p) return;
+            document.getElementById('detailName').innerText = p.name;
+            document.getElementById('detailBrand').innerText = p.brand || 'No Brand';
+            document.getElementById('detailPrice').innerText = 'GHS ' + p.price.toFixed(2);
+            document.getElementById('detailDesc').innerText = p.desc || 'No description.';
+            
+            const vStock = p.variants ? p.variants.reduce((a,b)=>a+(b.stock||0),0) : 0;
+            const totalStock = (p.baseStock || 0) + vStock;
+            document.getElementById('detailStock').innerText = totalStock + " Units Total";
+            
+            const main = document.getElementById('detailMainImg');
+            const thumbs = document.getElementById('detailThumbnails');
+            thumbs.innerHTML = '';
+            const allImages = (p.images && p.images.length) ? p.images : ['https://via.placeholder.com/300'];
+            main.src = allImages[0];
+            allImages.forEach(img => { const t = document.createElement('img'); t.src = img; t.className = "w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-pointer hover:border-brand-orange"; t.onclick = () => main.src = img; thumbs.appendChild(t); });
+            
+            const vContainer = document.getElementById('detailVariants');
+            vContainer.innerHTML = '';
+            if(p.variants && p.variants.length) { 
+                p.variants.forEach((v, idx) => { 
+                    const vImg = (v.images && v.images.length > 0) ? v.images[0] : (v.image || '');
+                    vContainer.innerHTML += `
+                        <div onclick="previewVariant(${p.id}, ${idx})" class="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded text-xs dark:text-white border border-gray-200 dark:border-gray-600 flex items-center gap-2 cursor-pointer hover:bg-brand-orange/20 hover:border-brand-orange transition-colors">
+                            <img src="${vImg}" class="w-4 h-4 rounded-full">
+                            ${v.color}: ${v.stock}
+                        </div>`; 
+                }); 
+            } else { vContainer.innerHTML = '<span class="text-xs text-gray-400">No variants</span>'; }
+            
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function previewVariant(prodId, variantIdx) {
+            const p = products.find(prod => prod.id === prodId);
+            if(!p || !p.variants || !p.variants[variantIdx]) return;
+            const v = p.variants[variantIdx];
+            if(v.images && v.images.length > 0) { document.getElementById('detailMainImg').src = v.images[0]; }
+            document.getElementById('detailStock').innerText = `${v.stock} Units (${v.color})`;
+        }
+        function closeDetailModal() { document.getElementById('detailModal').classList.add('hidden'); }
+        function openPickupModal() { document.getElementById('pickupModal').classList.remove('hidden'); updateHubDropdowns(); }
+        function closeProductModalFunc() { document.getElementById('productModal').classList.add('hidden'); }
+        
+        async function callGemini(prompt, targetId) {
+            if(!apiKey) { return showToast("Save API Key first", "error"); }
+            if(!targetId) { document.getElementById('aiModal').classList.remove('hidden'); document.getElementById('aiLoader').classList.remove('hidden'); document.getElementById('aiContent').innerHTML=''; }
+            else { document.getElementById(targetId).placeholder = "Thinking..."; }
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+                const d = await r.json();
+                const text = d.candidates[0].content.parts[0].text;
+                if(targetId) { document.getElementById(targetId).value = text; document.getElementById(targetId).placeholder=""; }
+                else { document.getElementById('aiLoader').classList.add('hidden'); document.getElementById('aiContent').innerHTML = marked.parse(text); }
+            } catch(e) { showToast("AI Error", "error"); }
+        }
+        function generateDescription() { const n = document.getElementById('pName').value, b = document.getElementById('pBrand').value; if(!n) return showToast("Name required", "error"); callGemini(`Write 50-word sales description for "${n}" by "${b}". Exciting tone.`, 'pDesc'); }
+        function generateMarketPulse() { document.getElementById('aiModalTitle').innerText = "Market Pulse"; callGemini(`I am a vendor in Ghana. My inventory: ${products.map(p=>p.name).join(', ').substring(0,300)}. Suggest 2 trending electronic items to add.`, null); }
+        function generateShopReport() { document.getElementById('aiModalTitle').innerText = "Shop Analysis"; const sales = wallet.filter(t => t.amount > 0).map(t => t.desc).join(', '); callGemini(`Analyze my sales: ${sales || 'No sales yet'}. Inventory size: ${products.length}. Give 3 strategic tips.`, null); }
+        function handleAIWrite() { if(vendorTier < 2) showLockModal(2); else generateDescription(); }
+        function handleTopShelf() { if(vendorTier < 3) showLockModal(3); else showToast("Item Promoted!"); }
+
+        function openAddModal() {
+    document.getElementById('productForm').reset();
+    document.getElementById('modalTitle').innerText = "Add Product";
+    document.getElementById('editId').value = "";
+    document.getElementById('pCategory').value = "Shoe"; // Default to common item
+    tempImages = [];
+    tempVariants = [];
+    renderMainImages();
+    document.getElementById('variantList').innerHTML = '';
+    updateHubDropdowns(); 
+    document.getElementById('productModal').classList.remove('hidden');
+}
+
+       
+function submitProduct() {
+    const name = document.getElementById('pName').value;
+    const price = parseFloat(document.getElementById('pPrice').value);
+    const stock = parseInt(document.getElementById('pStock').value);
+    const category = document.getElementById('pCategory').value;
+    
+    // CAPTURE NEW FLAG
+    const isExportable = document.getElementById('pExport').checked;
+
+    if(!name || isNaN(price) || isNaN(stock)) return showToast("Fill all required fields", "error");
+    if(tempImages.length < 3) return showToast("Min 3 Main Images required", "error");
+
+    const editId = document.getElementById('editId').value;
+    
+   let assignedVolume = 15;
+    let requiresReview = false;
+    
+    const catMap = {
+        'Phone': 'Envelope',
+        'Fashion': 'ShoeBox', 
+        'Shoe': 'ShoeBox',
+        'Laptop': 'Laptop',
+        'Appliance': 'Microwave',
+        'TV': 'Bulky',
+        'Other': 'ShoeBox' // Default safety
+    };
+
+    // The Fix: Pull directly from the Master Physics Config
+    const configKey = catMap[category] || 'ShoeBox';
+    assignedVolume = VU_CONFIG[configKey].vu;
+
+    if (category === 'Other') requiresReview = true;
+
+    const product = {
+        id: editId ? parseInt(editId) : Date.now(),
+        name: name,
+        brand: document.getElementById('pBrand').value,
+        price: price,
+        baseStock: stock,
+        category: category,
+        volume: assignedVolume,
+        status: requiresReview ? 'Under Review' : 'Active',
+        hub: document.getElementById('pHub').value,
+        desc: document.getElementById('pDesc').value,
+        reseller: document.getElementById('pResell').checked,
+        isExportable: isExportable, 
+        images: tempImages,
+        variants: tempVariants,
+        originRegion: localStorage.getItem('balnova_active_region') || 'GH' // Tag with Origin
+    };
+
+    if(editId) {
+        const idx = products.findIndex(p => p.id === parseInt(editId));
+        if(idx !== -1) products[idx] = product;
+    } else {
+        products.push(product);
+    }
+
+    localStorage.setItem('balnova_inventory', JSON.stringify(products));
+    loadProducts();
+    closeProductModalFunc();
+    
+    if(requiresReview) showToast("Saved. Pending Review.", "warning");
+    else showToast(isExportable ? "Product Live (Global Market)" : "Product Live (Local Only)");
+}
+
+        // --- FIX: MARK READY PUSHES TO ADMIN ---
+        function markReady(id) {
+            // 1. Update Vendor View
+            const o = vendorOrders.find(v => v.id === id);
+            if(o) {
+                o.status = "Ready for Pickup";
+                localStorage.setItem('balnova_vendor_orders', JSON.stringify(vendorOrders));
+                renderOrders();
+                showToast("Order marked Ready!");
+            }
+
+            // 2. Update Admin View (Critical for dispatch)
+            let adminQ = JSON.parse(localStorage.getItem('balnova_admin_queue')) || [];
+            const adminOrder = adminQ.find(a => a.id === id);
+            if(adminOrder) {
+                adminOrder.status = "Ready for Pickup";
+                localStorage.setItem('balnova_admin_queue', JSON.stringify(adminQ));
+            }
+        }
+        
+        // --- NEW CHARTER LOGIC ---
+        function openCharterModal() { document.getElementById('charterModal').classList.remove('hidden'); }
+
+        function submitCharterRequest(e) {
+            e.preventDefault();
+            // Collect Form Data
+            const pickup = document.getElementById('charterPickup').value;
+            const drop = document.getElementById('charterDrop').value;
+            const time = document.getElementById('charterTime').value;
+            const desc = document.getElementById('charterDesc').value;
+
+            // Save to shared DB for Admin to see
+            const requests = JSON.parse(localStorage.getItem('balnova_charter_requests')) || [];
+            requests.unshift({
+                customer: "Vendor: Kofi Electronics", // Hardcoded vendor name for now
+                pickup: pickup,
+                drop: drop,
+                desc: desc,
+                time: time,
+                timestamp: Date.now()
+            });
+            localStorage.setItem('balnova_charter_requests', JSON.stringify(requests));
+
+            // Clear & Close
+            e.target.reset();
+            document.getElementById('charterModal').classList.add('hidden');
+            document.getElementById('charterSuccessModal').classList.remove('hidden');
+        }
+        function toggleExportCheck() {
+            const val = document.getElementById('mdType') ? document.getElementById('mdType').value : 'Local';
+            const div = document.getElementById('vendorExportCheck');
+            if(div) {
+                if (val !== 'Local') div.classList.remove('hidden');
+                else div.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
