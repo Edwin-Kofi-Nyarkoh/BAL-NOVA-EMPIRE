@@ -1,0 +1,11 @@
+{
+  "users": [
+    {
+      "id": "U-1770153757289",
+      "name": "Arnold",
+      "email": "arnocansey1243@gmail.com",
+      "password": "whoisarnold",
+      "role": "admin"
+    }
+  ]
+}

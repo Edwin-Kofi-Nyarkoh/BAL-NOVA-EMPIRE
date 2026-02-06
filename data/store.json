@@ -1,0 +1,14 @@
+{
+  "inventory": [],
+  "orders": [
+    {
+      "id": "RS-1770152613682-P-003",
+      "item": "Nova Power Bank",
+      "price": 90,
+      "status": "Pending",
+      "origin": "storefront",
+      "createdAt": 1770152613682
+    }
+  ],
+  "chats": []
+}
