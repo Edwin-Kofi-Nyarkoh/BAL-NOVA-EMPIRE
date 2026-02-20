@@ -3,21 +3,41 @@ import { requireAdmin } from "@/lib/server/api-auth"
 import bcrypt from "bcryptjs"
 import { logAuditEvent } from "@/lib/server/audit"
 import { applyCors, corsHeaders } from "@/lib/server/cors"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { z } from "zod"
+
+const updateUserSchema = z.object({
+  role: z.string().min(2).max(20).optional(),
+  password: z.string().min(8).max(200).optional(),
+  name: z.string().min(1).max(120).optional(),
+  approvalStatus: z.string().min(3).max(20).optional()
+})
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin()
   if (!auth.ok) return applyCors(auth.response)
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`admin_user_patch:${ip}`, 30, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
+  }
 
-  const id = params.id
+  const { id } = await params
   const body = await req.json().catch(() => ({}))
-  const role = typeof body.role === "string" ? body.role : undefined
-  const password = typeof body.password === "string" ? body.password : undefined
-  const name = typeof body.name === "string" ? body.name.trim() : undefined
-  const approvalStatus = typeof body.approvalStatus === "string" ? body.approvalStatus : undefined
+  const parsed = updateUserSchema.safeParse({
+    role: typeof body.role === "string" ? body.role : undefined,
+    password: typeof body.password === "string" ? body.password : undefined,
+    name: typeof body.name === "string" ? body.name.trim() : undefined,
+    approvalStatus: typeof body.approvalStatus === "string" ? body.approvalStatus : undefined
+  })
+  if (!parsed.success) {
+    return Response.json({ error: "Invalid user payload" }, { status: 400, headers: corsHeaders })
+  }
+  const { role, password, name, approvalStatus } = parsed.data
 
   const user = await prisma.user.findUnique({ where: { id } })
   if (!user) {

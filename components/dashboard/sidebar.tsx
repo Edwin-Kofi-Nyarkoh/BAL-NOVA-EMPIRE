@@ -22,6 +22,8 @@ import {
   MessageCircle
 } from "lucide-react"
 import { ModeToggle } from "@/components/ui/mode-toggle"
+import { useDialog } from "@/components/ui/dialog-service"
+import { useToast } from "@/components/ui/toast-service"
 
 const menuItems = [
   { icon: <TrendingUp size={20} />, label: "Financial Engine", href: "/financial-engine" },
@@ -47,8 +49,15 @@ const ecosystemItems = [
 export function Sidebar({ className, isOpen, onClose }: { className?: string; isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
   const [pendingCount, setPendingCount] = useState(0)
+  const [geoSummary, setGeoSummary] = useState<{ countries: any[]; regions: any[]; branches: any[] }>({
+    countries: [],
+    regions: [],
+    branches: []
+  })
   const { data: session } = useSession()
   const role = (session?.user as any)?.role || "user"
+  const dialog = useDialog()
+  const toast = useToast()
 
   useEffect(() => {
     if (role !== "admin") return
@@ -72,6 +81,97 @@ export function Sidebar({ className, isOpen, onClose }: { className?: string; is
       clearInterval(interval)
     }
   }, [role])
+
+  useEffect(() => {
+    if (role !== "admin") return
+    let active = true
+    async function loadGeo() {
+      try {
+        const res = await fetch("/api/geo/summary")
+        if (!res.ok) return
+        const data = await res.json().catch(() => ({}))
+        if (!active) return
+        setGeoSummary({
+          countries: Array.isArray(data.countries) ? data.countries : [],
+          regions: Array.isArray(data.regions) ? data.regions : [],
+          branches: Array.isArray(data.branches) ? data.branches : []
+        })
+      } catch {
+        // ignore
+      }
+    }
+    loadGeo()
+    const interval = setInterval(loadGeo, 30000)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [role])
+
+  async function addCountry() {
+    const name = await dialog.prompt("Country name", { placeholder: "e.g., Nigeria" })
+    if (!name) return
+    const code = await dialog.prompt("Country code (2 letters)", { placeholder: "NG" })
+    if (!code) return
+    const flag = await dialog.prompt("Flag emoji (optional)", { placeholder: "🇳🇬" })
+    const currency = await dialog.prompt("Currency symbol (optional)", { placeholder: "₦" })
+    const res = await fetch("/api/geo/countries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, code, flag: flag || null, currency: currency || null })
+    })
+    if (!res.ok) {
+      toast.push("Failed to add country.", "error")
+      return
+    }
+    toast.push("Country added.")
+    const data = await res.json().catch(() => ({}))
+    setGeoSummary((prev) => ({ ...prev, countries: [data.country, ...prev.countries].slice(0, 5) }))
+  }
+
+  async function addRegion() {
+    const countryCode = await dialog.prompt("Parent country code", { placeholder: "GH" })
+    if (!countryCode) return
+    const name = await dialog.prompt("Region name", { placeholder: "e.g., Lagos State" })
+    if (!name) return
+    const code = await dialog.prompt("Region code (3 letters)", { placeholder: "LAG" })
+    if (!code) return
+    const res = await fetch("/api/geo/regions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ countryCode, name, code })
+    })
+    if (!res.ok) {
+      toast.push("Failed to add region.", "error")
+      return
+    }
+    toast.push("Region added.")
+    const data = await res.json().catch(() => ({}))
+    setGeoSummary((prev) => ({ ...prev, regions: [data.region, ...prev.regions].slice(0, 5) }))
+  }
+
+  async function addBranch() {
+    if (!geoSummary.regions.length) {
+      toast.push("No region added yet. Add a region first.", "warning")
+      return
+    }
+    const regionId = await dialog.prompt("Region ID", { placeholder: "Paste region id" })
+    if (!regionId) return
+    const name = await dialog.prompt("Branch name", { placeholder: "e.g., Accra Central Hub" })
+    if (!name) return
+    const res = await fetch("/api/geo/branches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ regionId, name })
+    })
+    if (!res.ok) {
+      toast.push("Failed to add branch.", "error")
+      return
+    }
+    toast.push("Branch added.")
+    const data = await res.json().catch(() => ({}))
+    setGeoSummary((prev) => ({ ...prev, branches: [data.branch, ...prev.branches].slice(0, 5) }))
+  }
 
   const visiblePendingCount = role === "admin" ? pendingCount : 0
 
@@ -148,13 +248,47 @@ export function Sidebar({ className, isOpen, onClose }: { className?: string; is
             ) : null}
           </Link>
           <div className="grid grid-cols-2 gap-2">
-            <button className="bg-white/5 hover:bg-white/10 text-gray-400 text-xs py-2 rounded border border-dashed border-gray-600 hover:border-gray-400 transition-all flex flex-col items-center justify-center gap-1">
+            <button
+              onClick={addBranch}
+              className="bg-white/5 hover:bg-white/10 text-gray-400 text-xs py-2 rounded border border-dashed border-gray-600 hover:border-gray-400 transition-all flex flex-col items-center justify-center gap-1"
+            >
               + Branch
             </button>
-            <button className="bg-mynavy hover:bg-myblue text-white text-xs py-2 rounded border border-myamber/50 hover:border-myamber transition-all flex flex-col items-center justify-center gap-1 shadow-lg">
+            <button
+              onClick={addCountry}
+              className="bg-mynavy hover:bg-myblue text-white text-xs py-2 rounded border border-myamber/50 hover:border-myamber transition-all flex flex-col items-center justify-center gap-1 shadow-lg"
+            >
               + Country
             </button>
           </div>
+          <button
+            onClick={addRegion}
+            className="w-full bg-blue-900/50 hover:bg-blue-800 text-blue-200 text-xs py-2 rounded border border-blue-700 hover:border-blue-500 transition-all flex items-center justify-center gap-1 shadow-lg"
+          >
+            + Region
+          </button>
+          {geoSummary.countries.length || geoSummary.regions.length || geoSummary.branches.length ? (
+            <div className="mt-2 px-2 text-[10px] text-gray-400 space-y-1">
+              {geoSummary.countries.map((c) => (
+                <div key={c.id} className="flex justify-between">
+                  <span>Country</span>
+                  <span className="font-mono">{c.code}</span>
+                </div>
+              ))}
+              {geoSummary.regions.map((r) => (
+                <div key={r.id} className="flex justify-between">
+                  <span>Region</span>
+                  <span className="font-mono">{r.code}</span>
+                </div>
+              ))}
+              {geoSummary.branches.map((b) => (
+                <div key={b.id} className="flex justify-between">
+                  <span>Branch</span>
+                  <span className="font-mono">{b.name}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </nav>
     </aside>

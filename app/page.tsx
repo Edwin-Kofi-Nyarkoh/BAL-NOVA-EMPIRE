@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { prisma } from "@/lib/server/prisma"
 
-export const dynamic = "force-dynamic"
+export const revalidate = 60
 
 export default async function LandingPage() {
   let products: Array<{
@@ -9,6 +9,8 @@ export default async function LandingPage() {
     name: string
     price: number
     brand: string | null
+    imageUrl?: string | null
+    desc?: string | null
     baseStock: number
     updatedAt: Date
   }> = []
@@ -35,7 +37,13 @@ export default async function LandingPage() {
         <header className="relative z-10 flex items-center justify-between px-6 py-6 md:px-12">
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-[#0B2340] flex items-center justify-center shadow-xl">
-              <img src="/empire-shield.svg" alt="Bal Nova Shield" className="h-12 w-12 md:h-16 md:w-16" />
+              <img
+                src="/empire-shield.svg"
+                alt="Bal Nova Shield"
+                className="h-12 w-12 md:h-16 md:w-16"
+                decoding="async"
+                fetchPriority="high"
+              />
             </div>
             <div>
               <p className="text-lg font-black tracking-tight">Bal Nova</p>
@@ -124,7 +132,13 @@ export default async function LandingPage() {
                     >
                       {product.imageUrl ? (
                         <div className="mb-3 h-28 w-full overflow-hidden rounded-xl bg-white/5">
-                          <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
                         </div>
                       ) : null}
                       <div className="flex items-start justify-between">

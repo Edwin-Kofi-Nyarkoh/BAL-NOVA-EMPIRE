@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
+import { useDialog } from "@/components/ui/dialog-service"
 
 type Product = {
   id: string
@@ -19,6 +20,7 @@ type Product = {
 const emptyForm = { name: "", price: "", brand: "", desc: "", imageUrl: "", baseStock: "" }
 
 export default function InventoryPage() {
+  const dialog = useDialog()
   const [items, setItems] = useState<Product[]>([])
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
   const [message, setMessage] = useState("")
@@ -177,7 +179,8 @@ export default function InventoryPage() {
   }
 
   async function deleteItem(id: string) {
-    if (!confirm("Delete this product?")) return
+    const ok = await dialog.confirm("Delete this product?")
+    if (!ok) return
     setMessage("")
     try {
       const res = await fetch("/api/inventory", {
@@ -249,7 +252,13 @@ export default function InventoryPage() {
               </div>
               {imagePreview ? (
                 <div className="rounded-lg border border-gray-200 dark:border-white/10 p-2">
-                  <img src={imagePreview} alt="Preview" className="h-32 w-full object-cover rounded-md" />
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="h-32 w-full object-cover rounded-md"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </div>
               ) : null}
               <input
@@ -354,6 +363,8 @@ export default function InventoryPage() {
                               src={editImagePreview || editForm.imageUrl || ""}
                               alt="Preview"
                               className="h-20 w-full object-cover rounded-md"
+                              loading="lazy"
+                              decoding="async"
                             />
                           </div>
                         ) : null}
@@ -395,7 +406,13 @@ export default function InventoryPage() {
                           {item.desc ? <p className="text-[11px] text-gray-400">{item.desc}</p> : null}
                           {item.imageUrl ? (
                             <div className="mt-2 flex items-center gap-2">
-                              <img src={item.imageUrl} alt={item.name} className="h-10 w-10 rounded-md object-cover" />
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="h-10 w-10 rounded-md object-cover"
+                                loading="lazy"
+                                decoding="async"
+                              />
                               <button
                                 onClick={async () => {
                                   await fetch("/api/inventory", {

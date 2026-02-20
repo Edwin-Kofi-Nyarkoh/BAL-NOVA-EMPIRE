@@ -1,10 +1,16 @@
 import { requireAdmin } from "@/lib/server/api-auth"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
 import { mkdir, writeFile } from "fs/promises"
 import path from "path"
 
 export async function POST(req: Request) {
   const auth = await requireAdmin()
   if (!auth.ok) return auth.response
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`upload:${ip}`, 20, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many uploads. Try again later." }, { status: 429 })
+  }
 
   const form = await req.formData()
   const file = form.get("file")

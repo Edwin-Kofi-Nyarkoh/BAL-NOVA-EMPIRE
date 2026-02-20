@@ -1,3 +1,4 @@
+export {}
 const { readUsers } = require("../lib/server/users") as typeof import("../lib/server/users")
 const { prisma } = require("../lib/server/prisma") as typeof import("../lib/server/prisma")
 const bcrypt = require("bcryptjs") as typeof import("bcryptjs")

@@ -1,14 +1,26 @@
 import { prisma } from "@/lib/server/prisma"
 import { notifyPasswordReset } from "@/lib/server/notifications"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { z } from "zod"
 import crypto from "crypto"
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}))
-  const email = String(body.email || "").toLowerCase().trim()
+const forgotSchema = z.object({
+  email: z.string().email().max(254)
+})
 
-  if (!email || !email.includes("@")) {
+export async function POST(req: Request) {
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`forgot:${ip}`, 6, 10 * 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429 })
+  }
+
+  const body = await req.json().catch(() => ({}))
+  const parsed = forgotSchema.safeParse(body)
+  if (!parsed.success) {
     return Response.json({ error: "Invalid email" }, { status: 400 })
   }
+  const email = parsed.data.email.toLowerCase().trim()
 
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user) {

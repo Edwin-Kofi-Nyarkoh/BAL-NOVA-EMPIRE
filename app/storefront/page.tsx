@@ -6,6 +6,7 @@ import { ShoppingCart, Search, Sun, Moon, Tag } from "lucide-react"
 import { cn, formatCurrency } from "@/lib/utils"
 import { getJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
+import { useDialog } from "@/components/ui/dialog-service"
 import Link from "next/link"
 
 type Product = {
@@ -32,6 +33,7 @@ type CartSnapshot = {
 }
 
 export default function StorefrontPage() {
+  const dialog = useDialog()
   const [products, setProducts] = useState<Product[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [snapshots, setSnapshots] = useState<CartSnapshot[]>([])
@@ -239,8 +241,8 @@ export default function StorefrontPage() {
       return
     }
     if (cart.length === 0) return
-    const name = prompt("Snapshot name") || ""
-    if (!name.trim()) return
+    const name = await dialog.prompt("Snapshot name", { placeholder: "Snapshot name" })
+    if (!name || !name.trim()) return
     await requestJSON(
       "/api/cart/snapshots",
       { name: name.trim(), items: toCartPayload(cart) },
@@ -288,11 +290,11 @@ export default function StorefrontPage() {
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
             {isAuthed ? (
-              <LogoutButton className="hidden md:inline-flex text-[10px] font-bold px-2 py-1 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
+              <LogoutButton className="inline-flex text-[10px] font-bold px-2 py-1 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
             ) : (
               <Link
                 href="/login"
-                className="hidden md:inline-flex text-[10px] font-bold px-2 py-1 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors"
+                className="inline-flex text-[10px] font-bold px-2 py-1 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors"
               >
                 Login
               </Link>
@@ -333,7 +335,13 @@ export default function StorefrontPage() {
             <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
               {p.imageUrl ? (
                 <div className="mb-3 h-32 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
-                  <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </div>
               ) : null}
               <div className="text-xs text-gray-400">{p.brand || "Bal Nova"}</div>
@@ -477,4 +485,5 @@ function safeParse<T>(key: string, fallback: T): T {
     return fallback
   }
 }
+
 

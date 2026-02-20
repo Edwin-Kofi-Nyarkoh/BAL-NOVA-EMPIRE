@@ -2,6 +2,8 @@ import { prisma } from "@/lib/server/prisma"
 import { requireUser } from "@/lib/server/api-auth"
 import { logAuditEvent } from "@/lib/server/audit"
 import { applyCors, corsHeaders } from "@/lib/server/cors"
+import { z } from "zod"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
@@ -67,6 +69,11 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const auth = await requireUser()
   if (!auth.ok) return applyCors(auth.response)
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`chats:${ip}`, 30, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests" }, { status: 429, headers: corsHeaders })
+  }
   const user = auth.session.user as any
   const role = String(user?.role || "user")
   const body = await req.json().catch(() => ({}))
@@ -74,12 +81,18 @@ export async function POST(req: Request) {
   const chat = body.chat
 
   if (chats) {
-    const validChats = chats
-      .map((c: any) => ({
-        role: String(c?.role || "user"),
-        text: String(c?.text || "").trim()
-      }))
-      .filter((c: any) => c.text.length > 0)
+    const chatSchema = z.object({
+      role: z.string().min(1).max(16),
+      text: z.string().trim().min(1).max(1000)
+    })
+    const parsed = z.array(chatSchema).safeParse(chats)
+    if (!parsed.success) {
+      return Response.json({ error: "Invalid chats", details: parsed.error.flatten() }, { status: 400, headers: corsHeaders })
+    }
+    const validChats = parsed.data.map((c) => ({
+      role: c.role,
+      text: c.text.trim()
+    }))
 
     if (!validChats.length) {
       return Response.json({ error: "No valid chats provided" }, { status: 400, headers: corsHeaders })
@@ -114,13 +127,19 @@ export async function POST(req: Request) {
       metadata: { count: validChats.length }
     })
   } else if (chat) {
-    const text = String(chat?.text || "").trim()
-    if (!text) {
-      return Response.json({ error: "Chat text is required" }, { status: 400, headers: corsHeaders })
+    const chatSchema = z.object({
+      role: z.string().optional(),
+      text: z.string().trim().min(1).max(1000),
+      threadId: z.string().optional()
+    })
+    const parsed = chatSchema.safeParse(chat)
+    if (!parsed.success) {
+      return Response.json({ error: "Invalid chat", details: parsed.error.flatten() }, { status: 400, headers: corsHeaders })
     }
-    const incomingRole = String(chat.role || "user")
+    const text = parsed.data.text.trim()
+    const incomingRole = String(parsed.data.role || "user")
     const isAdminSend = role === "admin" && incomingRole === "admin"
-    const targetThreadId = String(chat.threadId || "")
+    const targetThreadId = String(parsed.data.threadId || "")
     let threadId = targetThreadId
     let thread = targetThreadId
       ? await prisma.chatThread.findUnique({ where: { id: targetThreadId } })

@@ -11,11 +11,11 @@ type AlertItem = {
 }
 
 type AnalyticsResponse = {
-  totals: {
-    lowInventoryCount: number
+  totals?: {
+    lowInventoryCount?: number
   }
-  last24h: {
-    orders: number
+  last24h?: {
+    orders?: number
   }
 }
 
@@ -46,21 +46,24 @@ export function OperationalAlerts() {
           })
         }
 
-        if (analyticsJson?.totals?.lowInventoryCount > 0) {
+        const lowInventoryCount = analyticsJson?.totals?.lowInventoryCount ?? 0
+        const orders24h = analyticsJson?.last24h?.orders ?? 0
+
+        if (lowInventoryCount > 0) {
           next.push({
             id: "inventory",
             tone: "warning",
             title: "Low Inventory",
-            message: `${analyticsJson.totals.lowInventoryCount} SKUs are below the safety threshold.`
+            message: `${lowInventoryCount} SKUs are below the safety threshold.`
           })
         }
 
-        if ((analyticsJson?.last24h?.orders || 0) > 50) {
+        if (orders24h > 50) {
           next.push({
             id: "orders",
             tone: "info",
             title: "Order Spike",
-            message: `Orders in last 24h: ${analyticsJson.last24h.orders}.`
+            message: `Orders in last 24h: ${orders24h}.`
           })
         }
 

@@ -43,6 +43,40 @@ export async function syncPaymentFromPaystack(data: VerifiedData) {
   }
 
   const items = typeof payment.items === "object" && payment.items ? (payment.items as any) : {}
+  if (items.type === "PRO_CREDITS") {
+    await prisma.paymentIntent.update({
+      where: { id: payment.id },
+      data: {
+        status: "successful",
+        gatewayId: String(data.id),
+        completedAt: new Date()
+      }
+    })
+
+    await prisma.financeLedger.create({
+      data: {
+        userId: payment.userId,
+        type: "CREDIT",
+        amount: Number(payment.amount || 0),
+        status: "posted",
+        note: "Pro credit top-up"
+      }
+    })
+
+    const user = await prisma.user.findUnique({ where: { id: payment.userId } })
+    if (user?.email) {
+      await notifyPaymentReceipt({
+        email: user.email,
+        name: user.name,
+        amount: Number(payment.amount || 0),
+        currency: payment.currency,
+        reference: payment.txRef
+      })
+    }
+
+    return { ok: true, status: "successful", creditTopUp: true }
+  }
+
   const lineItems = Array.isArray(items.items) ? items.items : []
 
   const createdOrders = await prisma.$transaction([

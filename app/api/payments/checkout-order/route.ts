@@ -2,6 +2,12 @@ import { prisma } from "@/lib/server/prisma"
 import { requireUser } from "@/lib/server/api-auth"
 import { initializePaystackTransaction } from "@/lib/server/paystack"
 import { applyCors, corsHeaders } from "@/lib/server/cors"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { z } from "zod"
+
+const checkoutOrderSchema = z.object({
+  orderId: z.string().min(6).max(80)
+})
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
@@ -10,14 +16,20 @@ export async function OPTIONS() {
 export async function POST(req: Request) {
   const auth = await requireUser()
   if (!auth.ok) return applyCors(auth.response)
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`pay_checkout_order:${ip}`, 12, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
+  }
   const user = auth.session.user as any
   let paymentId: string | null = null
   try {
     const body = await req.json().catch(() => ({}))
-    const orderId = String(body.orderId || "")
-    if (!orderId) {
+    const parsed = checkoutOrderSchema.safeParse(body)
+    if (!parsed.success) {
       return Response.json({ error: "Missing orderId" }, { status: 400, headers: corsHeaders })
     }
+    const orderId = parsed.data.orderId
     if (!user?.email) {
       return Response.json({ error: "Missing account email." }, { status: 400, headers: corsHeaders })
     }

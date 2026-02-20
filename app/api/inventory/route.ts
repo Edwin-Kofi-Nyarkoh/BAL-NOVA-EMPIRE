@@ -2,6 +2,39 @@ import { prisma } from "@/lib/server/prisma"
 import { requireAdmin } from "@/lib/server/api-auth"
 import { logAuditEvent } from "@/lib/server/audit"
 import { applyCors, corsHeaders } from "@/lib/server/cors"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { z } from "zod"
+
+const inventoryItemSchema = z.object({
+  name: z.string().min(1).max(200),
+  price: z.coerce.number().min(0).max(1_000_000),
+  brand: z.string().max(80).optional().nullable(),
+  desc: z.string().max(2000).optional().nullable(),
+  imageUrl: z.string().max(500).optional().nullable(),
+  baseStock: z.coerce.number().int().min(0).max(1_000_000)
+})
+
+const inventoryBulkSchema = z.object({
+  items: z.array(inventoryItemSchema).min(1).max(2000)
+})
+
+const inventoryCreateSchema = z.object({
+  item: inventoryItemSchema
+})
+
+const inventoryUpdateSchema = z.object({
+  id: z.string().min(2).max(80),
+  name: z.string().min(1).max(200).optional(),
+  price: z.coerce.number().min(0).max(1_000_000).optional(),
+  brand: z.string().max(80).optional().nullable(),
+  desc: z.string().max(2000).optional().nullable(),
+  imageUrl: z.string().max(500).optional().nullable(),
+  baseStock: z.coerce.number().int().min(0).max(1_000_000).optional()
+})
+
+const inventoryDeleteSchema = z.object({
+  id: z.string().min(2).max(80)
+})
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
@@ -15,25 +48,28 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requireAdmin()
   if (!auth.ok) return applyCors(auth.response)
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`inventory_post:${ip}`, 20, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
+  }
   const body = await req.json().catch(() => ({}))
   const items = Array.isArray(body.items) ? body.items : null
   const item = body.item
 
   if (items) {
-    const validItems = items
-      .map((i: any) => ({
-        name: String(i?.name || "").trim(),
-        price: Number(i?.price || 0),
-        brand: i?.brand ? String(i.brand).trim() : null,
-        desc: i?.desc ? String(i.desc).trim() : null,
-        imageUrl: i?.imageUrl ? String(i.imageUrl).trim() : null,
-        baseStock: Number(i?.baseStock || 0)
-      }))
-      .filter((i: any) => i.name.length > 0)
-
-    if (!validItems.length) {
+    const parsed = inventoryBulkSchema.safeParse({ items })
+    if (!parsed.success) {
       return Response.json({ error: "No valid items provided" }, { status: 400, headers: corsHeaders })
     }
+    const validItems = parsed.data.items.map((i) => ({
+      name: i.name.trim(),
+      price: i.price,
+      brand: i.brand ?? null,
+      desc: i.desc ?? null,
+      imageUrl: i.imageUrl ?? null,
+      baseStock: i.baseStock
+    }))
 
     await prisma.$transaction([
       prisma.inventoryItem.deleteMany(),
@@ -46,25 +82,26 @@ export async function POST(req: Request) {
       metadata: { count: validItems.length }
     })
   } else if (item) {
-    const name = String(item?.name || "").trim()
-    if (!name) {
+    const parsed = inventoryCreateSchema.safeParse({ item })
+    if (!parsed.success) {
       return Response.json({ error: "Item name is required" }, { status: 400, headers: corsHeaders })
     }
+    const data = parsed.data.item
     await prisma.inventoryItem.create({
       data: {
-        name,
-        price: Number(item.price || 0),
-        brand: item.brand || null,
-        desc: item.desc ? String(item.desc).trim() : null,
-        imageUrl: item.imageUrl ? String(item.imageUrl).trim() : null,
-        baseStock: Number(item.baseStock || 0)
+        name: data.name.trim(),
+        price: data.price,
+        brand: data.brand ?? null,
+        desc: data.desc ?? null,
+        imageUrl: data.imageUrl ?? null,
+        baseStock: data.baseStock
       }
     })
     await logAuditEvent({
       actor: auth.session.user,
       action: "inventory.create",
       entityType: "InventoryItem",
-      metadata: { name }
+      metadata: { name: data.name }
     })
   } else {
     return Response.json({ error: "Invalid payload" }, { status: 400, headers: corsHeaders })
@@ -77,22 +114,25 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const auth = await requireAdmin()
   if (!auth.ok) return applyCors(auth.response)
-  const body = await req.json().catch(() => ({}))
-  const id = String(body.id || "")
-  if (!id) return Response.json({ error: "Missing id" }, { status: 400, headers: corsHeaders })
-
-  const data: { name?: string; price?: number; brand?: string | null; desc?: string | null; imageUrl?: string | null; baseStock?: number } = {}
-  if (typeof body.name === "string") {
-    const name = body.name.trim()
-    if (!name) return Response.json({ error: "Name is required" }, { status: 400, headers: corsHeaders })
-    data.name = name
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`inventory_patch:${ip}`, 40, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
   }
-  if (typeof body.price === "number") data.price = body.price
-  if (body.brand !== undefined) data.brand = body.brand ? String(body.brand).trim() : null
-  if (body.desc !== undefined) data.desc = body.desc ? String(body.desc).trim() : null
-  if (body.imageUrl !== undefined) data.imageUrl = body.imageUrl ? String(body.imageUrl).trim() : null
-  if (typeof body.baseStock === "number") data.baseStock = body.baseStock
-
+  const body = await req.json().catch(() => ({}))
+  const parsed = inventoryUpdateSchema.safeParse({
+    id: typeof body.id === "string" ? body.id.trim() : "",
+    name: typeof body.name === "string" ? body.name.trim() : undefined,
+    price: body.price,
+    brand: body.brand !== undefined ? (body.brand ? String(body.brand).trim() : null) : undefined,
+    desc: body.desc !== undefined ? (body.desc ? String(body.desc).trim() : null) : undefined,
+    imageUrl: body.imageUrl !== undefined ? (body.imageUrl ? String(body.imageUrl).trim() : null) : undefined,
+    baseStock: body.baseStock
+  })
+  if (!parsed.success) {
+    return Response.json({ error: "Invalid payload" }, { status: 400, headers: corsHeaders })
+  }
+  const { id, ...data } = parsed.data
   if (!Object.keys(data).length) {
     return Response.json({ error: "No updates provided" }, { status: 400, headers: corsHeaders })
   }
@@ -111,9 +151,17 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const auth = await requireAdmin()
   if (!auth.ok) return applyCors(auth.response)
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`inventory_delete:${ip}`, 20, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
+  }
   const body = await req.json().catch(() => ({}))
-  const id = String(body.id || "")
-  if (!id) return Response.json({ error: "Missing id" }, { status: 400, headers: corsHeaders })
+  const parsed = inventoryDeleteSchema.safeParse({ id: typeof body.id === "string" ? body.id.trim() : "" })
+  if (!parsed.success) {
+    return Response.json({ error: "Missing id" }, { status: 400, headers: corsHeaders })
+  }
+  const id = parsed.data.id
 
   await prisma.inventoryItem.delete({ where: { id } })
   await logAuditEvent({

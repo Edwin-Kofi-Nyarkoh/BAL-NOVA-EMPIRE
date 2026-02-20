@@ -247,3 +247,91 @@
   30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
   40%, 60% { transform: translate3d(4px, 0, 0); }
 }
+
+/* Rider HUD helpers */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+.hud-glass {
+  background: rgba(5, 11, 20, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+.timeline-line {
+  position: absolute;
+  left: 23px;
+  top: 20px;
+  bottom: -20px;
+  width: 2px;
+  background: linear-gradient(to bottom, #00f0ff 0%, #13131f 100%);
+  z-index: 0;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+.stop-node.active .node-dot {
+  background: #ffbf00;
+  border-color: #ffbf00;
+  box-shadow: 0 0 15px #ffbf00;
+  transform: scale(1.2);
+}
+.stop-node.done .node-dot {
+  background: #10b981;
+  border-color: #10b981;
+}
+.stop-node.future .node-dot {
+  background: #1e293b;
+  border-color: #475569;
+}
+.active-task-glow {
+  animation: border-pulse 3s infinite;
+}
+@keyframes border-pulse {
+  0%, 100% { border-color: rgba(255, 191, 0, 0.4); box-shadow: 0 0 15px rgba(255, 191, 0, 0.1); }
+  50% { border-color: rgba(255, 191, 0, 1); box-shadow: 0 0 25px rgba(255, 191, 0, 0.3); }
+}
+.slider-track {
+  background: #0a0a0f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  height: 60px;
+  border-radius: 12px;
+}
+.slider-knob {
+  background: #ffbf00;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(255, 191, 0, 0.4);
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+  touch-action: none;
+}
+.gauge-circle {
+  transition: stroke-dashoffset 0.5s ease-in-out;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+.shadow-neon-blue {
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.3);
+}
+.shadow-neon-purple {
+  box-shadow: 0 0 10px rgba(176, 38, 255, 0.5), 0 0 20px rgba(176, 38, 255, 0.3);
+}
+.shadow-neon-amber {
+  box-shadow: 0 0 10px rgba(255, 191, 0, 0.5), 0 0 20px rgba(255, 191, 0, 0.3);
+}
+@keyframes pulse-fast {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+@keyframes spin-reverse {
+  to { transform: rotate(-360deg); }
+}
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+.animate-spin-reverse { animation: spin-reverse 12s linear infinite; }
+.animate-pulse-fast { animation: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }

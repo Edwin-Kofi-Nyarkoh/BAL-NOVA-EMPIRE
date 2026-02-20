@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useDialog } from "@/components/ui/dialog-service"
 
 type UserRow = {
   id: string
@@ -15,7 +16,32 @@ type UserRow = {
   createdAt: string
 }
 
+type RiderAdminRow = {
+  id: string
+  name: string | null
+  email: string | null
+  riderState?: {
+    status?: string | null
+    pendingCash?: number | null
+    currentVol?: number | null
+    lastLat?: number | null
+    lastLng?: number | null
+    lastLocationAt?: string | null
+  } | null
+  riderTasks?: { id: string; type: string; loc: string; status: string }[]
+}
+
+type OrderRow = {
+  id: string
+  item: string
+  price: number
+  status: string
+  riderId?: string | null
+  createdAt: string
+}
+
 export default function SystemConfigPage() {
+  const dialog = useDialog()
   const [users, setUsers] = useState<UserRow[]>([])
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
   const [message, setMessage] = useState("")
@@ -34,6 +60,16 @@ export default function SystemConfigPage() {
     autoHot: true
   })
   const [savingBaySettings, setSavingBaySettings] = useState(false)
+  const [resettingRiderCash, setResettingRiderCash] = useState(false)
+  const [riderAdminRows, setRiderAdminRows] = useState<RiderAdminRow[]>([])
+  const [loadingRiders, setLoadingRiders] = useState(false)
+  const [assignOrderId, setAssignOrderId] = useState("")
+  const [assignRiderId, setAssignRiderId] = useState("")
+  const [assigningOrder, setAssigningOrder] = useState(false)
+  const [orders, setOrders] = useState<OrderRow[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
+  const [dispatchRadiusKm, setDispatchRadiusKm] = useState("")
+  const [savingDispatchRadius, setSavingDispatchRadius] = useState(false)
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" })
 
   const canSubmit = useMemo(() => {
@@ -104,13 +140,16 @@ export default function SystemConfigPage() {
   }
 
   async function promptResetPassword(id: string) {
-    const value = window.prompt("Enter a temporary password (min 8 characters)")
+    const value = await dialog.prompt("Enter a temporary password (min 8 characters)", {
+      placeholder: "Temporary password"
+    })
     if (!value) return
     await updateUser(id, { password: value })
   }
 
   async function backfillOrderUsers() {
-    if (!confirm("Backfill order owners from existing ledger entries?")) {
+    const ok = await dialog.confirm("Backfill order owners from existing ledger entries?")
+    if (!ok) {
       return
     }
     setBackfillStatus("running")
@@ -130,6 +169,9 @@ export default function SystemConfigPage() {
   useEffect(() => {
     loadUsers()
     void loadBaySettings()
+    void loadRiders()
+    void loadOrders()
+    void loadSystemSettings()
   }, [])
 
   async function loadBaySettings() {
@@ -187,6 +229,123 @@ export default function SystemConfigPage() {
       })
     } finally {
       setSavingBaySettings(false)
+    }
+  }
+
+  async function loadRiders() {
+    setLoadingRiders(true)
+    try {
+      const res = await fetch("/api/rider/admin")
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setRiderAdminRows(Array.isArray(data.riders) ? data.riders : [])
+      }
+    } finally {
+      setLoadingRiders(false)
+    }
+  }
+
+  async function loadOrders() {
+    setLoadingOrders(true)
+    try {
+      const res = await fetch("/api/orders?all=1")
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setOrders(Array.isArray(data.orders) ? data.orders : [])
+      }
+    } finally {
+      setLoadingOrders(false)
+    }
+  }
+
+  async function loadSystemSettings() {
+    try {
+      const res = await fetch("/api/system-settings")
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && typeof data?.settings?.dispatchRadiusKm === "number") {
+        setDispatchRadiusKm(String(data.settings.dispatchRadiusKm))
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async function saveDispatchRadius() {
+    const value = Number(dispatchRadiusKm)
+    if (!Number.isFinite(value) || value <= 0) {
+      setMessage("Dispatch radius must be a positive number.")
+      return
+    }
+    setSavingDispatchRadius(true)
+    setMessage("")
+    try {
+      const res = await fetch("/api/system-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dispatchRadiusKm: value })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || "Save failed")
+      setMessage("Dispatch radius saved.")
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Save failed")
+    } finally {
+      setSavingDispatchRadius(false)
+    }
+  }
+
+  async function clearRiderTasks(riderId: string) {
+    const ok = await dialog.confirm("Clear all active tasks for this rider?")
+    if (!ok) return
+    await fetch("/api/rider/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clear_tasks", riderId })
+    })
+    await loadRiders()
+  }
+
+  async function assignOrderToRider() {
+    if (!assignOrderId.trim() || !assignRiderId.trim()) {
+      setMessage("Order ID and Rider are required.")
+      return
+    }
+    setAssigningOrder(true)
+    setMessage("")
+    try {
+      const res = await fetch("/api/rider/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assign", orderId: assignOrderId.trim(), riderId: assignRiderId })
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || "Assign failed")
+      setMessage("Order assigned to rider.")
+      setAssignOrderId("")
+      await loadRiders()
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Assign failed")
+    } finally {
+      setAssigningOrder(false)
+    }
+  }
+
+  async function resetRiderCash() {
+    const ok = await dialog.confirm("Reset pending rider cash for all riders?")
+    if (!ok) return
+    setResettingRiderCash(true)
+    setMessage("")
+    try {
+      const res = await fetch("/api/rider/reset", { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data?.error || "Reset failed")
+      }
+      setMessage(`Rider cash reset for ${data?.updated ?? 0} accounts.`)
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Reset failed")
+    } finally {
+      setResettingRiderCash(false)
     }
   }
 
@@ -424,6 +583,19 @@ export default function SystemConfigPage() {
               </button>
             </div>
 
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={resetRiderCash}
+                disabled={resettingRiderCash}
+                className="rounded-lg border border-red-500/40 text-red-600 text-xs font-bold px-4 py-2 hover:bg-red-500/10 disabled:opacity-60"
+              >
+                {resettingRiderCash ? "Resetting..." : "Reset Rider Cash"}
+              </button>
+              <p className="text-[11px] text-gray-500">
+                Clears pending rider cash for all rider accounts.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <input
                 className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/5 px-3 py-2 text-sm"
@@ -458,6 +630,131 @@ export default function SystemConfigPage() {
               />
               Auto-hot highlight (disable to suppress bay warnings)
             </label>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white dark:bg-mydark lg:col-span-3">
+          <CardContent className="p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-mynavy dark:text-white">Dispatch Radius</h3>
+              <p className="text-xs text-gray-500">Limit auto-assign to riders within this radius (km).</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                className="w-40 rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/5 px-3 py-2 text-sm"
+                placeholder="Radius (km)"
+                value={dispatchRadiusKm}
+                onChange={(e) => setDispatchRadiusKm(e.target.value)}
+              />
+              <button
+                onClick={saveDispatchRadius}
+                disabled={savingDispatchRadius}
+                className="rounded-lg bg-myamber text-black text-sm font-bold px-4 py-2 disabled:opacity-60"
+              >
+                {savingDispatchRadius ? "Saving..." : "Save Radius"}
+              </button>
+              <span className="text-[11px] text-gray-500">
+                Defaults to env `DISPATCH_RADIUS_KM` if blank.
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white dark:bg-mydark lg:col-span-3">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-mynavy dark:text-white">Rider Dispatch Control</h3>
+                <p className="text-xs text-gray-500">Assign orders and clear active rider tasks.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={loadRiders}
+                  className="text-xs font-bold px-3 py-2 rounded-full border border-myamber/40 text-myamber hover:bg-myamber/10 transition-colors"
+                >
+                  Refresh Riders
+                </button>
+                <button
+                  onClick={loadOrders}
+                  className="text-xs font-bold px-3 py-2 rounded-full border border-blue-500/40 text-blue-600 hover:bg-blue-500/10 transition-colors"
+                >
+                  Refresh Orders
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <select
+                className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/5 px-3 py-2 text-sm"
+                value={assignOrderId}
+                onChange={(e) => setAssignOrderId(e.target.value)}
+              >
+                <option value="">{loadingOrders ? "Loading orders..." : "Select Order"}</option>
+                {orders
+                  .filter((o) => o.status !== "Delivered" && !o.riderId)
+                  .map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.item} · GHS {Number(o.price || 0).toFixed(2)} · {o.id.slice(-6)}
+                    </option>
+                  ))}
+              </select>
+              <select
+                className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/5 px-3 py-2 text-sm"
+                value={assignRiderId}
+                onChange={(e) => setAssignRiderId(e.target.value)}
+              >
+                <option value="">Select Rider</option>
+                {riderAdminRows.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name || r.email || r.id}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={assignOrderToRider}
+                disabled={assigningOrder}
+                className="rounded-lg bg-myamber text-black text-sm font-bold py-2 disabled:opacity-60"
+              >
+                {assigningOrder ? "Assigning..." : "Assign Order"}
+              </button>
+            </div>
+
+            {loadingRiders ? (
+              <p className="text-sm text-gray-500">Loading riders...</p>
+            ) : riderAdminRows.length === 0 ? (
+              <p className="text-sm text-gray-500">No riders found.</p>
+            ) : (
+              <div className="space-y-3">
+                {riderAdminRows.map((rider) => (
+                  <div
+                    key={rider.id}
+                    className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {rider.name || "Unnamed Rider"}
+                      </p>
+                      <p className="text-xs text-gray-500">{rider.email || rider.id}</p>
+                      <p className="text-[11px] text-gray-400">
+                        Status: {rider.riderState?.status || "Idle"} · Cash: GHS{" "}
+                        {(rider.riderState?.pendingCash || 0).toFixed(2)} · Vol: {rider.riderState?.currentVol || 0}%
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-500">
+                        Active tasks: {rider.riderTasks?.length || 0}
+                      </span>
+                      <button
+                        onClick={() => clearRiderTasks(rider.id)}
+                        className="text-xs font-bold px-3 py-1 rounded-full border border-red-500/40 text-red-600 hover:bg-red-500/10"
+                      >
+                        Clear Tasks
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

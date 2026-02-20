@@ -21,15 +21,25 @@ model InventoryItem {
 model Order {
   id        String   @id @default(cuid())
   userId    String?
+  riderId   String?
   paymentId String?
   item      String
   price     Float
   status    String   @default("Pending")
   origin    String?
+  originLat Float?
+  originLng Float?
+  dropLat   Float?
+  dropLng   Float?
+  acceptedAt DateTime?
+  pickedUpAt DateTime?
+  deliveredAt DateTime?
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  rider     User?    @relation("RiderOrders", fields: [riderId], references: [id], onDelete: SetNull)
   payment   PaymentIntent? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   @@index([userId, createdAt])
+  @@index([riderId, createdAt])
 }
 
 model Chat {
@@ -78,15 +88,69 @@ model User {
   resellerTeam  ResellerTeam[]
   proPortfolio  ProPortfolio?
   proTeam       ProTeam[]
+  riderState    RiderState?
+  riderTasks    RiderTask[]
   cart          Cart?
   financeLedger FinanceLedger[]
   debtProfile   DebtProfile?
+  rateCard     RateCard?
+  maintenanceLogs MaintenanceLog[]
+  createdCountries Country[]
+  createdRegions  Region[]
+  createdBranches Branch[]
   orders        Order[]
+  riderOrders   Order[] @relation("RiderOrders")
   cartSnapshots CartSnapshot[]
   resetTokens  PasswordResetToken[]
   payments     PaymentIntent[]
   chatThreads  ChatThread[]
   chats        Chat[]
+}
+
+model RiderState {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  status           String   @default("Idle")
+  currentSector    String   @default("SPINTEX_PRIME")
+  currentVol       Int      @default(0)
+  pendingCash      Float    @default(0)
+  xp               Int      @default(0)
+  streak           Int      @default(0)
+  reputation       Int      @default(100)
+  rankTitle        String   @default("NOVICE")
+  lastKnownLocation String?
+  isHoldActive     Boolean  @default(false)
+  activeTaskId     String?  @unique
+  lastLat          Float?
+  lastLng          Float?
+  lastHeading      Float?
+  lastAccuracy     Float?
+  lastLocationAt   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeTask       RiderTask? @relation("ActiveRiderTask", fields: [activeTaskId], references: [id])
+  tasks            RiderTask[]
+}
+
+model RiderTask {
+  id        String   @id @default(cuid())
+  stateId   String
+  userId    String
+  orderId   String?
+  type      String
+  loc       String
+  note      String?
+  status    String   @default("pending")
+  revenue   Float    @default(0)
+  sequence  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  state     RiderState @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeFor RiderState? @relation("ActiveRiderTask")
+  @@index([userId, status, createdAt])
+  @@index([stateId, sequence])
 }
 
 model PaymentIntent {
@@ -289,4 +353,74 @@ model DebtProfile {
   debtPaid  Float    @default(0)
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RateCard {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  fx        Float?
+  air       Float?
+  sea       Float?
+  roadKm    Float?
+  roadBase  Float?
+  border    Float?
+  local     Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MaintenanceLog {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String
+  assetId   String?
+  cost      Float
+  lockInWorkshop Boolean @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}
+
+model Country {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  flag        String?
+  currency    String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  regions     Region[]
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+}
+
+model Region {
+  id          String   @id @default(cuid())
+  countryId   String
+  code        String
+  name        String
+  createdById String?
+  createdAt   DateTime @default(now())
+  country     Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  branches    Branch[]
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  @@index([countryId, createdAt])
+}
+
+model Branch {
+  id          String   @id @default(cuid())
+  regionId    String
+  name        String
+  createdById String?
+  createdAt   DateTime @default(now())
+  region      Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  @@index([regionId, createdAt])
+}
+
+model SystemSettings {
+  id               String   @id @default(cuid())
+  dispatchRadiusKm Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

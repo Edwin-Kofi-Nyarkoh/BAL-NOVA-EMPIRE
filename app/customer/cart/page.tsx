@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Minus, Plus, Trash2 } from "lucide-react"
 import { cn, formatCurrency } from "@/lib/utils"
 import { getJSON, requestJSON } from "@/lib/sync"
+import { useDialog } from "@/components/ui/dialog-service"
 
 type CartItem = {
   id: string
@@ -29,6 +30,7 @@ type CartSnapshot = {
 }
 
 export default function CustomerCartPage() {
+  const dialog = useDialog()
   const [cart, setCart] = useState<CartItem[]>([])
   const [snapshots, setSnapshots] = useState<CartSnapshot[]>([])
   const [deliveryMode, setDeliveryMode] = useState<"delivery" | "pickup">("delivery")
@@ -120,8 +122,8 @@ export default function CustomerCartPage() {
 
   async function saveSnapshot() {
     if (cart.length === 0) return
-    const name = prompt("Snapshot name") || ""
-    if (!name.trim()) return
+    const name = await dialog.prompt("Snapshot name", { placeholder: "Snapshot name" })
+    if (!name || !name.trim()) return
     await requestJSON(
       "/api/cart/snapshots",
       { name: name.trim(), items: toCartPayload(cart) },

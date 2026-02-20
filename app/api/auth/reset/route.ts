@@ -1,18 +1,27 @@
 import { prisma } from "@/lib/server/prisma"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { z } from "zod"
 import crypto from "crypto"
 import bcrypt from "bcryptjs"
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}))
-  const token = String(body.token || "")
-  const password = String(body.password || "")
+const resetSchema = z.object({
+  token: z.string().min(20).max(256),
+  password: z.string().min(8).max(200)
+})
 
-  if (!token || token.length < 20) {
-    return Response.json({ error: "Invalid token" }, { status: 400 })
+export async function POST(req: Request) {
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`reset:${ip}`, 8, 10 * 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429 })
   }
-  if (password.length < 8) {
-    return Response.json({ error: "Password must be at least 8 characters" }, { status: 400 })
+
+  const body = await req.json().catch(() => ({}))
+  const parsed = resetSchema.safeParse(body)
+  if (!parsed.success) {
+    return Response.json({ error: "Invalid token or password" }, { status: 400 })
   }
+  const { token, password } = parsed.data
 
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex")
   const reset = await prisma.passwordResetToken.findFirst({

@@ -1,6 +1,8 @@
 // app/layout.tsx
 import { ThemeProvider } from "@/components/theme-provider"
 import { AppSessionProvider } from "@/components/session-provider"
+import { DialogProvider } from "@/components/ui/dialog-service"
+import { ToastProvider } from "@/components/ui/toast-service"
 import "./globals.css"
 import {Inter, JetBrains_Mono} from "next/font/google"
 
@@ -33,7 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <ToastProvider>
+              <DialogProvider>
+                {children}
+              </DialogProvider>
+            </ToastProvider>
           </ThemeProvider>
         </AppSessionProvider>
       </body>

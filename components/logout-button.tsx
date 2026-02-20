@@ -8,7 +8,10 @@ export function LogoutButton({ className }: { className?: string }) {
   if (status !== "authenticated") return null
   return (
     <button
-      onClick={() => signOut({ callbackUrl: "/" })}
+      onClick={async () => {
+        await signOut({ redirect: false })
+        window.location.href = "/"
+      }}
       className={className}
     >
       Logout

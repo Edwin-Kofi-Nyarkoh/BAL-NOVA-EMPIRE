@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn, formatCurrency } from "@/lib/utils"
+import { useDialog } from "@/components/ui/dialog-service"
 
 type LedgerEntry = {
   id: string
@@ -23,6 +24,7 @@ type UserRow = {
 }
 
 export default function FinanceLedgerPage() {
+  const dialog = useDialog()
   const [entries, setEntries] = useState<LedgerEntry[]>([])
   const [users, setUsers] = useState<UserRow[]>([])
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
@@ -129,7 +131,8 @@ export default function FinanceLedgerPage() {
   }
 
   async function deleteEntry(id: string) {
-    if (!confirm("Delete this ledger entry?")) return
+    const ok = await dialog.confirm("Delete this ledger entry?")
+    if (!ok) return
     const res = await fetch(`/api/finance/ledger/${id}`, { method: "DELETE" })
     if (!res.ok) {
       const data = await readJsonSafe(res)
@@ -351,8 +354,9 @@ export default function FinanceLedgerPage() {
                           <option value="manual">manual</option>
                         </select>
                         <button
-                          onClick={() => {
-                            const note = prompt("Update note", e.note || "") || ""
+                          onClick={async () => {
+                            const note = await dialog.prompt("Update note", { defaultValue: e.note || "" })
+                            if (note === null) return
                             updateEntry(e.id, { note })
                           }}
                           className="text-myamber font-bold"

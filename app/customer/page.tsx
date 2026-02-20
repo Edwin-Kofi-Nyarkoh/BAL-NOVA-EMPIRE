@@ -19,6 +19,7 @@ import {
 import { cn, formatCurrency } from "@/lib/utils"
 import { getJSON, postJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
+import { useDialog } from "@/components/ui/dialog-service"
 
 type Product = {
   id: string
@@ -73,6 +74,7 @@ type ServiceView = "panic" | "post" | "browse"
 export default function CustomerHome() {
   const { data: session, status: sessionStatus } = useSession()
   const sessionRole = ((session?.user as any)?.role || "") as string
+  const dialog = useDialog()
   const [tab, setTab] = useState<Tab>("shop")
   const [mode, setMode] = useState<"shop" | "service">("shop")
   const [serviceView, setServiceView] = useState<ServiceView>("panic")
@@ -340,9 +342,9 @@ export default function CustomerHome() {
     }
   }
 
-  function addAddress() {
+  async function addAddress() {
     if (!profile.phone) {
-      alert("Add a phone number in your profile before saving locations.")
+      await dialog.alert("Add a phone number in your profile before saving locations.")
       return
     }
     setEditingAddress(null)
@@ -383,8 +385,9 @@ export default function CustomerHome() {
     setPanicResults([])
   }
 
-  function resetSimulation() {
-    if (!confirm("Reset customer simulation data?")) return
+  async function resetSimulation() {
+    const ok = await dialog.confirm("Reset customer simulation data?")
+    if (!ok) return
     window.location.reload()
   }
 
@@ -499,7 +502,7 @@ export default function CustomerHome() {
                 </span>
               ) : null}
             </button>
-            <LogoutButton className="hidden md:inline-flex text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
+            <LogoutButton className="inline-flex text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
           </div>
         </div>
       </header>
@@ -1163,4 +1166,5 @@ async function callGemini(apiKey: string, prompt: string) {
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
   return typeof text === "string" ? text : "AI Service Unavailable"
 }
+
 

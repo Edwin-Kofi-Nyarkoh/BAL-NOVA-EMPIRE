@@ -1,9 +1,16 @@
 import crypto from "crypto"
 import { verifyPaystackTransaction } from "@/lib/server/paystack"
 import { syncPaymentFromPaystack } from "@/lib/server/payments"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req)
+    const limiter = rateLimit(`pay_webhook:${ip}`, 120, 60 * 1000)
+    if (!limiter.ok) {
+      return Response.json({ error: "Too many requests." }, { status: 429 })
+    }
+
     const secret = process.env.PAYSTACK_SECRET_KEY
     const signature = req.headers.get("x-paystack-signature")
 

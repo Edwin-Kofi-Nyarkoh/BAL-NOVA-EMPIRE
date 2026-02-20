@@ -1,6 +1,23 @@
 import { prisma } from "@/lib/server/prisma"
 import { requireUser } from "@/lib/server/api-auth"
 import { applyCors, corsHeaders } from "@/lib/server/cors"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { z } from "zod"
+
+const cartItemSchema = z.object({
+  productId: z.string().min(1).max(80).optional().nullable(),
+  name: z.string().min(1).max(200),
+  price: z.coerce.number().min(0).max(1_000_000),
+  qty: z.coerce.number().int().min(1).max(999)
+})
+
+const cartSchema = z.object({
+  items: z.array(cartItemSchema).max(200)
+})
+
+const addItemSchema = z.object({
+  item: cartItemSchema
+})
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
@@ -36,12 +53,23 @@ export async function PUT(req: Request) {
   try {
     const auth = await requireUser()
     if (!auth.ok) return applyCors(auth.response)
+    const ip = getClientIp(req)
+    const limiter = rateLimit(`cart_put:${ip}`, 30, 60 * 1000)
+    if (!limiter.ok) {
+      return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
+    }
     const userId = (auth.session.user as any).id
     if (!userId) {
       return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders })
     }
     const body = await req.json().catch(() => ({}))
-    const items = Array.isArray(body.items) ? (body.items as IncomingItem[]) : []
+    const parsed = cartSchema.safeParse({
+      items: Array.isArray(body.items) ? body.items : []
+    })
+    if (!parsed.success) {
+      return Response.json({ error: "Invalid cart payload" }, { status: 400, headers: corsHeaders })
+    }
+    const items = parsed.data.items as IncomingItem[]
 
     const cleaned = items
       .map((i) => ({
@@ -83,15 +111,21 @@ export async function POST(req: Request) {
   try {
     const auth = await requireUser()
     if (!auth.ok) return applyCors(auth.response)
+    const ip = getClientIp(req)
+    const limiter = rateLimit(`cart_add:${ip}`, 60, 60 * 1000)
+    if (!limiter.ok) {
+      return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
+    }
     const userId = (auth.session.user as any).id
     if (!userId) {
       return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders })
     }
     const body = await req.json().catch(() => ({}))
-    const item = body.item as IncomingItem | undefined
-    if (!item?.name) {
-      return Response.json({ error: "Item name is required" }, { status: 400, headers: corsHeaders })
+    const parsed = addItemSchema.safeParse(body)
+    if (!parsed.success) {
+      return Response.json({ error: "Invalid cart item" }, { status: 400, headers: corsHeaders })
     }
+    const item = parsed.data.item
 
     const cart = await prisma.cart.upsert({
       where: { userId },
@@ -117,10 +151,15 @@ export async function POST(req: Request) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
     const auth = await requireUser()
     if (!auth.ok) return applyCors(auth.response)
+    const ip = getClientIp(req)
+    const limiter = rateLimit(`cart_del:${ip}`, 20, 60 * 1000)
+    if (!limiter.ok) {
+      return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
+    }
     const userId = (auth.session.user as any).id
     if (!userId) {
       return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders })

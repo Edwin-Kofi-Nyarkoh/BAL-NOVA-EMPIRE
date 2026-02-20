@@ -17,6 +17,7 @@ import {
 import { cn, formatCurrency } from "@/lib/utils"
 import { getJSON, postJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
+import { useDialog } from "@/components/ui/dialog-service"
 
 type ShopItem = {
   id: string
@@ -43,6 +44,7 @@ type Brand = {
 type TabKey = "dashboard" | "shop" | "orders" | "wallet" | "team" | "settings"
 
 export default function ResellerPage() {
+  const dialog = useDialog()
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [orders, setOrders] = useState<Order[]>([])
@@ -125,19 +127,20 @@ export default function ResellerPage() {
     void requestJSON("/api/settings", { theme: next ? "dark" : "light" }, "PUT", {})
   }
 
-  function addShopItem() {
-    const name = prompt("Item name") || ""
+  async function addShopItem() {
+    const name = await dialog.prompt("Item name", { placeholder: "Item name" })
     if (!name) return
-    const price = parseFloat(prompt("Selling price (GHS)") || "0")
+    const priceRaw = await dialog.prompt("Selling price (GHS)", { placeholder: "0" })
+    const price = parseFloat(priceRaw || "0")
     const newItem: ShopItem = { id: `RS-${Date.now()}`, name, price, sellingPrice: price }
     setShop((prev) => [newItem, ...prev])
     void postJSON("/api/inventory", { item: newItem }, { items: [] })
   }
 
-  function addTeam() {
-    const name = prompt("Team member name") || ""
+  async function addTeam() {
+    const name = await dialog.prompt("Team member name", { placeholder: "Team member name" })
     if (!name) return
-    const role = prompt("Role") || "Associate"
+    const role = (await dialog.prompt("Role", { placeholder: "Associate", defaultValue: "Associate" })) || "Associate"
     void postJSON("/api/reseller/team", { name, role }, {}).then(() => syncTeam())
   }
 
@@ -241,7 +244,7 @@ export default function ResellerPage() {
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
-            <LogoutButton className="hidden md:inline-flex text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
+            <LogoutButton className="inline-flex text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
           </div>
         </header>
 
@@ -353,10 +356,11 @@ export default function ResellerPage() {
                     {t.id ? (
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => {
-                            const name = prompt("Update name", t.name) || ""
+                          onClick={async () => {
+                            const name = await dialog.prompt("Update name", { defaultValue: t.name })
                             if (!name) return
-                            const role = prompt("Update role", t.role) || ""
+                            const role = await dialog.prompt("Update role", { defaultValue: t.role })
+                            if (!role) return
                             void requestJSON(`/api/reseller/team/${t.id}`, { name, role }, "PATCH", {}).then(() => syncTeam())
                           }}
                           className="text-xs text-myamber"
@@ -465,4 +469,5 @@ function safeParse<T>(key: string, fallback: T): T {
     return fallback
   }
 }
+
 

@@ -1,13 +1,20 @@
 import { prisma } from "@/lib/server/prisma"
 import { requireAdmin } from "@/lib/server/api-auth"
 import { notifyPaymentReceipt } from "@/lib/server/notifications"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
 
-export async function POST(_: Request, { params }: { params: { id: string } }) {
+export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin()
   if (!auth.ok) return auth.response
+  const ip = getClientIp(_)
+  const limiter = rateLimit(`pay_receipt:${ip}`, 10, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429 })
+  }
+  const { id } = await params
 
   const payment = await prisma.paymentIntent.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { user: true }
   })
 

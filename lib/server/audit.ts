@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/server/prisma"
+import { Prisma } from "@prisma/client"
 
 type Actor = {
   id?: string | null
@@ -21,7 +22,7 @@ export async function logAuditEvent(params: {
         action,
         entityType,
         entityId: entityId || null,
-        metadata: metadata || undefined
+        metadata: (metadata ?? undefined) as Prisma.InputJsonValue | undefined
       }
     })
   } catch {

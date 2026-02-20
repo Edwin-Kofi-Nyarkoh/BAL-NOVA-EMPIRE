@@ -1,9 +1,15 @@
 import { prisma } from "@/lib/server/prisma"
 import { requireAdmin } from "@/lib/server/api-auth"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
 
-export async function POST() {
+export async function POST(req: Request) {
   const auth = await requireAdmin()
   if (!auth.ok) return auth.response
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`ledger_backfill:${ip}`, 3, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429 })
+  }
 
   const orders = await prisma.order.findMany({ orderBy: { createdAt: "asc" } })
   let created = 0

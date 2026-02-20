@@ -2,6 +2,13 @@ import { prisma } from "@/lib/server/prisma"
 import { requireUser } from "@/lib/server/api-auth"
 import { initializePaystackTransaction } from "@/lib/server/paystack"
 import { applyCors, corsHeaders } from "@/lib/server/cors"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { z } from "zod"
+
+const checkoutSchema = z.object({
+  source: z.string().max(60).optional(),
+  deliveryFee: z.coerce.number().min(0).max(100000).optional()
+})
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
@@ -10,12 +17,21 @@ export async function OPTIONS() {
 export async function POST(req: Request) {
   const auth = await requireUser()
   if (!auth.ok) return applyCors(auth.response)
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`pay_checkout:${ip}`, 12, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
+  }
   const user = auth.session.user as any
   let paymentId: string | null = null
   try {
     const body = await req.json().catch(() => ({}))
-    const source = String(body.source || "storefront")
-    const deliveryFee = Math.max(0, Number(body.deliveryFee || 0))
+    const parsed = checkoutSchema.safeParse(body)
+    if (!parsed.success) {
+      return Response.json({ error: "Invalid payment payload." }, { status: 400, headers: corsHeaders })
+    }
+    const source = String(parsed.data.source || "storefront")
+    const deliveryFee = Math.max(0, Number(parsed.data.deliveryFee || 0))
 
     if (!user?.email) {
       return Response.json({ error: "Missing account email." }, { status: 400, headers: corsHeaders })

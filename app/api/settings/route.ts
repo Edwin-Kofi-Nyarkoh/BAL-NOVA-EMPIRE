@@ -1,6 +1,24 @@
 import { prisma } from "@/lib/server/prisma"
 import { requireUser } from "@/lib/server/api-auth"
 import { decryptValue, encryptValue } from "@/lib/server/crypto"
+import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { z } from "zod"
+
+const settingsSchema = z.object({
+  theme: z.string().max(40).optional(),
+  region: z.string().max(80).optional(),
+  phone: z.string().max(40).optional(),
+  apiKey: z.string().max(500).optional(),
+  proTier: z.coerce.number().int().min(0).max(10).optional(),
+  autoChat: z.boolean().optional(),
+  bayCapacity: z.coerce.number().min(0).max(100000).optional(),
+  bayHotPct: z.coerce.number().min(0).max(100).optional(),
+  bayACapacity: z.coerce.number().min(0).max(100000).optional(),
+  bayBCapacity: z.coerce.number().min(0).max(100000).optional(),
+  bayAHotPct: z.coerce.number().min(0).max(100).optional(),
+  bayBHotPct: z.coerce.number().min(0).max(100).optional(),
+  bayAutoHot: z.boolean().optional()
+})
 
 export async function GET() {
   const auth = await requireUser()
@@ -19,23 +37,32 @@ export async function GET() {
 export async function PUT(req: Request) {
   const auth = await requireUser()
   if (!auth.ok) return auth.response
+  const ip = getClientIp(req)
+  const limiter = rateLimit(`user_settings:${ip}`, 30, 60 * 1000)
+  if (!limiter.ok) {
+    return Response.json({ error: "Too many requests. Try again later." }, { status: 429 })
+  }
   const userId = (auth.session.user as any).id
   const body = await req.json().catch(() => ({}))
+  const parsed = settingsSchema.safeParse(body)
+  if (!parsed.success) {
+    return Response.json({ error: "Invalid settings payload" }, { status: 400 })
+  }
 
   const data = {
-    theme: typeof body.theme === "string" ? body.theme : undefined,
-    region: typeof body.region === "string" ? body.region : undefined,
-    phone: typeof body.phone === "string" ? body.phone : undefined,
-    apiKey: typeof body.apiKey === "string" ? encryptValue(body.apiKey) : undefined,
-    proTier: typeof body.proTier === "number" ? body.proTier : undefined,
-    autoChat: typeof body.autoChat === "boolean" ? body.autoChat : undefined,
-    bayCapacity: typeof body.bayCapacity === "number" ? body.bayCapacity : undefined,
-    bayHotPct: typeof body.bayHotPct === "number" ? body.bayHotPct : undefined,
-    bayACapacity: typeof body.bayACapacity === "number" ? body.bayACapacity : undefined,
-    bayBCapacity: typeof body.bayBCapacity === "number" ? body.bayBCapacity : undefined,
-    bayAHotPct: typeof body.bayAHotPct === "number" ? body.bayAHotPct : undefined,
-    bayBHotPct: typeof body.bayBHotPct === "number" ? body.bayBHotPct : undefined,
-    bayAutoHot: typeof body.bayAutoHot === "boolean" ? body.bayAutoHot : undefined
+    theme: parsed.data.theme,
+    region: parsed.data.region,
+    phone: parsed.data.phone,
+    apiKey: parsed.data.apiKey ? encryptValue(parsed.data.apiKey) : undefined,
+    proTier: parsed.data.proTier,
+    autoChat: parsed.data.autoChat,
+    bayCapacity: parsed.data.bayCapacity,
+    bayHotPct: parsed.data.bayHotPct,
+    bayACapacity: parsed.data.bayACapacity,
+    bayBCapacity: parsed.data.bayBCapacity,
+    bayAHotPct: parsed.data.bayAHotPct,
+    bayBHotPct: parsed.data.bayBHotPct,
+    bayAutoHot: parsed.data.bayAutoHot
   }
 
   const settings = await prisma.userSettings.upsert({

@@ -1,3 +1,4 @@
+export {}
 const { prisma: prismaClient } = require("../lib/server/prisma") as typeof import("../lib/server/prisma")
 
 async function main() {

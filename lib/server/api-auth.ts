@@ -12,7 +12,7 @@ export async function requireUser(): Promise<AuthResult> {
   let resolved = session
 
   if (!resolved?.user) {
-    const authHeader = headers().get("authorization") || ""
+    const authHeader = (await headers()).get("authorization") || ""
     if (authHeader.toLowerCase().startsWith("bearer ")) {
       const token = authHeader.slice(7).trim()
       try {
@@ -51,4 +51,18 @@ export async function requireAdmin(): Promise<AuthResult> {
     return { ok: false, response: Response.json({ error: "Forbidden" }, { status: 403 }) }
   }
   return result
+}
+
+export async function requireRole(roles: string[]): Promise<AuthResult> {
+  const result = await requireUser()
+  if (!result.ok) return result
+  const role = (result.session.user as any)?.role || "user"
+  if (!roles.includes(role)) {
+    return { ok: false, response: Response.json({ error: "Forbidden" }, { status: 403 }) }
+  }
+  return result
+}
+
+export async function requireRider(): Promise<AuthResult> {
+  return requireRole(["rider", "admin"])
 }

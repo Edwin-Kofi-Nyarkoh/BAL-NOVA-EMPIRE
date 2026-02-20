@@ -21,6 +21,7 @@ import {
 import { cn, formatCurrency } from "@/lib/utils"
 import { getJSON, postJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
+import { useDialog } from "@/components/ui/dialog-service"
 
 type Product = {
   id: string
@@ -48,18 +49,20 @@ type WalletTx = {
 type VendorProfile = {
   name: string
   initials: string
+  tier: number
 }
 
 type TabKey = "dashboard" | "inventory" | "orders" | "wallet" | "qc" | "settings"
 
 export default function VendorPortalPage() {
+  const dialog = useDialog()
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [qcLogs, setQcLogs] = useState<string[]>([])
   const [tier, setTier] = useState<number>(1)
-  const [profile, setProfile] = useState<VendorProfile>({ name: "", initials: "" })
+  const [profile, setProfile] = useState<VendorProfile>({ name: "", initials: "", tier: 1 })
   const [isDark, setIsDark] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPickupModal, setShowPickupModal] = useState(false)
@@ -102,8 +105,8 @@ export default function VendorPortalPage() {
   async function syncProfile() {
     const data = await getJSON<{ profile?: VendorProfile | null }>("/api/vendor/profile", {})
     if (data.profile) {
-      setProfile({ name: data.profile.name, initials: data.profile.initials })
-      setTier(data.profile.tier)
+      setProfile({ name: data.profile.name, initials: data.profile.initials, tier: data.profile.tier ?? 1 })
+      setTier(data.profile.tier ?? 1)
       return
     }
     const me = await getJSON<{ user?: { name?: string | null; email?: string | null } }>("/api/me", {})
@@ -114,7 +117,7 @@ export default function VendorPortalPage() {
       .join("")
       .slice(0, 2)
       .toUpperCase()
-    setProfile({ name, initials })
+    setProfile({ name, initials, tier: 1 })
     await requestJSON("/api/vendor/profile", { name, initials, tier: 1 }, "PUT", {})
   }
 
@@ -190,13 +193,14 @@ export default function VendorPortalPage() {
     setShowPickupModal(true)
   }
 
-  function resetVendorSystem() {
-    if (!confirm("Wipe ALL Vendor Data?")) return
+  async function resetVendorSystem() {
+    const ok = await dialog.confirm("Wipe ALL Vendor Data?")
+    if (!ok) return
     window.location.reload()
   }
 
   async function importLegacyVendorData() {
-    const legacyProfile = safeParse<VendorProfile>("balnova_vendor_profile", { name: "", initials: "" })
+    const legacyProfile = safeParse<VendorProfile>("balnova_vendor_profile", { name: "", initials: "", tier: 1 })
     const legacyTier = parseInt(localStorage.getItem("vendor_tier") || "1", 10)
     const legacyApiKey = localStorage.getItem("gemini_api_key") || ""
     const legacyRegion = localStorage.getItem("balnova_active_region") || ""
@@ -255,8 +259,8 @@ export default function VendorPortalPage() {
     }
   }
 
-  function addStaff() {
-    const name = prompt("Staff Name") || ""
+  async function addStaff() {
+    const name = await dialog.prompt("Staff Name", { placeholder: "Staff Name" })
     if (!name) return
     void postJSON("/api/vendor/staff", { name, role: "Clerk" }, {}).then(() => syncStaff())
   }
@@ -265,8 +269,8 @@ export default function VendorPortalPage() {
     void requestJSON(`/api/vendor/staff/${id}`, {}, "DELETE", {}).then(() => syncStaff())
   }
 
-  function addHub() {
-    const name = prompt("Hub Name") || ""
+  async function addHub() {
+    const name = await dialog.prompt("Hub Name", { placeholder: "Hub Name" })
     if (!name) return
     void postJSON("/api/vendor/hubs", { name }, {}).then(() => syncHubs())
   }
@@ -357,7 +361,7 @@ export default function VendorPortalPage() {
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
-            <LogoutButton className="hidden md:inline-flex text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
+            <LogoutButton className="inline-flex text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
             <div className="flex items-center gap-3 border-l pl-4 border-gray-300 dark:border-gray-600">
               <div className="text-right hidden sm:block">
                 <div className="text-sm font-bold text-gray-900 dark:text-white">{profile.name}</div>
@@ -582,10 +586,11 @@ export default function VendorPortalPage() {
                           <span>{s.name} - {s.role}</span>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => {
-                                const name = prompt("Update name", s.name) || ""
+                              onClick={async () => {
+                                const name = await dialog.prompt("Update name", { defaultValue: s.name })
                                 if (!name) return
-                                const role = prompt("Update role", s.role) || ""
+                                const role = await dialog.prompt("Update role", { defaultValue: s.role })
+                                if (!role) return
                                 void requestJSON(`/api/vendor/staff/${s.id}`, { name, role }, "PATCH", {}).then(() => syncStaff())
                               }}
                               className="text-myamber"
@@ -613,8 +618,8 @@ export default function VendorPortalPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => {
-                              const name = prompt("Update hub name", h.name) || ""
+                            onClick={async () => {
+                              const name = await dialog.prompt("Update hub name", { defaultValue: h.name })
                               if (!name) return
                               void requestJSON(`/api/vendor/hubs/${h.id}`, { name }, "PATCH", {}).then(() => syncHubs())
                             }}
@@ -761,4 +766,5 @@ function safeParse<T>(key: string, fallback: T): T {
     return fallback
   }
 }
+
 
