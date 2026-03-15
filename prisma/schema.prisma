@@ -1,0 +1,427 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model InventoryItem {
+  id        String   @id @default(cuid())
+  name      String
+  price     Float
+  brand     String?
+  desc      String?
+  imageUrl  String?
+  baseStock Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  userId    String?
+  riderId   String?
+  paymentId String?
+  item      String
+  price     Float
+  status    String   @default("Pending")
+  origin    String?
+  originLat Float?
+  originLng Float?
+  dropLat   Float?
+  dropLng   Float?
+  acceptedAt DateTime?
+  pickedUpAt DateTime?
+  deliveredAt DateTime?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  rider     User?    @relation("RiderOrders", fields: [riderId], references: [id], onDelete: SetNull)
+  payment   PaymentIntent? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  @@index([userId, createdAt])
+  @@index([riderId, createdAt])
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  role      String
+  text      String
+  userId    String?
+  threadId  String?
+  readByAdmin Boolean @default(false)
+  readByUser  Boolean @default(false)
+  createdAt DateTime @default(now())
+  thread    ChatThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  user      User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([threadId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model ChatThread {
+  id        String   @id @default(cuid())
+  userId    String?
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  Chat[]
+  user      User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([userId, status, updatedAt])
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  password       String
+  role           String   @default("user")
+  approvalStatus String   @default("approved")
+  approvedAt     DateTime?
+  approvedById   String?
+  createdAt      DateTime @default(now())
+
+  settings      UserSettings?
+  addresses     Address[]
+  vendorProfile VendorProfile?
+  vendorStaff   VendorStaff[]
+  vendorHubs    VendorHub[]
+  resellerBrand ResellerBrand?
+  resellerTeam  ResellerTeam[]
+  proPortfolio  ProPortfolio?
+  proTeam       ProTeam[]
+  riderState    RiderState?
+  riderTasks    RiderTask[]
+  cart          Cart?
+  financeLedger FinanceLedger[]
+  debtProfile   DebtProfile?
+  rateCard     RateCard?
+  maintenanceLogs MaintenanceLog[]
+  createdCountries Country[]
+  createdRegions  Region[]
+  createdBranches Branch[]
+  orders        Order[]
+  riderOrders   Order[] @relation("RiderOrders")
+  cartSnapshots CartSnapshot[]
+  resetTokens  PasswordResetToken[]
+  payments     PaymentIntent[]
+  chatThreads  ChatThread[]
+  chats        Chat[]
+}
+
+model RiderState {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  status           String   @default("Idle")
+  currentSector    String   @default("SPINTEX_PRIME")
+  currentVol       Int      @default(0)
+  pendingCash      Float    @default(0)
+  xp               Int      @default(0)
+  streak           Int      @default(0)
+  reputation       Int      @default(100)
+  rankTitle        String   @default("NOVICE")
+  lastKnownLocation String?
+  isHoldActive     Boolean  @default(false)
+  activeTaskId     String?  @unique
+  lastLat          Float?
+  lastLng          Float?
+  lastHeading      Float?
+  lastAccuracy     Float?
+  lastLocationAt   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeTask       RiderTask? @relation("ActiveRiderTask", fields: [activeTaskId], references: [id])
+  tasks            RiderTask[]
+}
+
+model RiderTask {
+  id        String   @id @default(cuid())
+  stateId   String
+  userId    String
+  orderId   String?
+  type      String
+  loc       String
+  note      String?
+  status    String   @default("pending")
+  revenue   Float    @default(0)
+  sequence  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  state     RiderState @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeFor RiderState? @relation("ActiveRiderTask")
+  @@index([userId, status, createdAt])
+  @@index([stateId, sequence])
+}
+
+model PaymentIntent {
+  id            String   @id @default(cuid())
+  userId        String
+  txRef         String   @unique
+  amount        Float
+  currency      String   @default("GHS")
+  status        String   @default("pending")
+  provider      String   @default("paystack")
+  channel       String
+  items         Json
+  gatewayId     String?
+  checkoutUrl   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  completedAt   DateTime?
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  @@index([userId, status, createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
+
+model UserSettings {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  theme     String?  // light | dark | system
+  region    String?
+  phone     String?
+  apiKey    String?
+  proTier   Int?
+  autoChat  Boolean?
+  bayCapacity Int?
+  bayHotPct  Int?
+  bayACapacity Int?
+  bayBCapacity Int?
+  bayAHotPct  Int?
+  bayBHotPct  Int?
+  bayAutoHot  Boolean?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VendorProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  name      String
+  initials  String
+  tier      Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VendorStaff {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  role      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VendorHub {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ResellerBrand {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  name      String
+  tagline   String
+  tier      Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ResellerTeam {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  role      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProPortfolio {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  summary   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProTeam {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  role      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String?
+  name      String
+  price     Float
+  qty       Int      @default(1)
+  createdAt DateTime @default(now())
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+}
+
+model CartSnapshot {
+  id        String             @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime           @default(now())
+  items     CartSnapshotItem[]
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CartSnapshotItem {
+  id          String   @id @default(cuid())
+  snapshotId  String
+  productId   String?
+  name        String
+  price       Float
+  qty         Int      @default(1)
+  createdAt   DateTime @default(now())
+  snapshot    CartSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+}
+
+model FinanceLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  orderId   String?
+  type      String
+  amount    Float
+  status    String   @default("posted")
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, type, createdAt])
+  @@index([orderId])
+}
+
+model DebtProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  totalDebt Float    @default(0)
+  debtPaid  Float    @default(0)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RateCard {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  fx        Float?
+  air       Float?
+  sea       Float?
+  roadKm    Float?
+  roadBase  Float?
+  border    Float?
+  local     Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MaintenanceLog {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String
+  assetId   String?
+  cost      Float
+  lockInWorkshop Boolean @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+}
+
+model Country {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  flag        String?
+  currency    String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  regions     Region[]
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+}
+
+model Region {
+  id          String   @id @default(cuid())
+  countryId   String
+  code        String
+  name        String
+  createdById String?
+  createdAt   DateTime @default(now())
+  country     Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  branches    Branch[]
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  @@index([countryId, createdAt])
+}
+
+model Branch {
+  id          String   @id @default(cuid())
+  regionId    String
+  name        String
+  createdById String?
+  createdAt   DateTime @default(now())
+  region      Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  @@index([regionId, createdAt])
+}
+
+model SystemSettings {
+  id               String   @id @default(cuid())
+  dispatchRadiusKm Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
