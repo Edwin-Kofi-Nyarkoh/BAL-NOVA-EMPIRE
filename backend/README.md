@@ -1,19 +1,43 @@
-# Backend (FastAPI)
+# Backend (Node Microservices)
 
-This folder contains the original Bal Nova backend (`main.py`) copied from `BAL-NOVA-EMPIRE/commandcenter`.
+The backend is TypeScript-based and split into:
+- `backend/gateway/server.ts` (API gateway)
+- `backend/api/server.ts` (core DB-backed API)
 
-## Run
-
-1. Create a virtual environment and install deps:
+## Env Vars
+Set these in your environment (or `.env`):
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+SERVICE_CLIENT_KEY=change-me-client-key
+INTERNAL_SERVICE_KEY=change-me-internal-key
+API_SERVICE_URL=http://localhost:8101
+NEXT_LEGACY_API_BASE=http://localhost:3000
 ```
 
-2. Start the API server:
+API service only:
 ```bash
-python main.py
+DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+NEXTAUTH_SECRET=your-secret
 ```
 
-The API will listen on `http://localhost:8000`.
+## Run API Service
+```bash
+pnpm backend:api
+```
+
+## Run Gateway
+```bash
+pnpm backend:gateway
+```
+
+## Security Model
+- Next API routes call gateway with `x-service-client-key`.
+- Gateway validates `SERVICE_CLIENT_KEY` and applies per-service rate limiting.
+ - Gateway forwards to API with `x-internal-key`.
+ - API only serves protected endpoints when `x-internal-key` matches `INTERNAL_SERVICE_KEY`.
+
+## Ports
+Both services honor `PORT` (recommended for hosts like Render). They also accept:
+- `GATEWAY_PORT` (gateway, default `8080`)
+- `API_SERVICE_PORT` (api, default `8101`)
+
+Client apps (web/mobile) should call the gateway, not the internal API directly.

@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Pro | Bal Nova</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { navy: '#002D62', amber: '#FFBF00', blue: '#0A2342', green: '#10B981', dark: '#0f172a' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        
+        .chat-bubble { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; margin-bottom: 8px; animation: fadeIn 0.2s ease-out; }
+        .chat-out { background: #10B981; color: white; border-bottom-right-radius: 2px; align-self: flex-end; margin-left: auto; }
+        .chat-in { background: #f3f4f6; color: #1f2937; border-bottom-left-radius: 2px; align-self: flex-start; }
+        .dark .chat-in { background: #374151; color: white; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #10B981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10B981; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans transition-colors duration-300 dark:bg-brand-dark dark:text-gray-100 overflow-hidden h-screen flex">
+
+    <div id="toastContainer" class="fixed top-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+    <aside id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 w-64 bg-brand-navy text-white flex flex-col transition-transform duration-300 z-50 shadow-xl border-r border-white/10">
+        <div class="p-6 flex flex-col items-center border-b border-white/10">
+            <div class="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-3 border-2 border-brand-green relative">
+                <i class="fa-solid fa-helmet-safety text-3xl text-brand-green"></i>
+                <div class="absolute -top-1 -right-1 bg-brand-green text-brand-navy text-[9px] font-bold px-2 py-0.5 rounded-full" id="tierBadge">APP.</div>
+            </div>
+            <h1 class="font-bold text-xl tracking-wide">BAL NOVA</h1>
+            <p class="text-xs text-brand-green/80">Service Provider</p>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <button onclick="switchTab('dashboard')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group active-nav">
+                <i class="fa-solid fa-chart-pie w-6 text-center group-hover:text-brand-green"></i> Dashboard
+            </button>
+            <button onclick="switchTab('market')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group">
+                <i class="fa-solid fa-briefcase w-6 text-center group-hover:text-brand-green"></i> Job Market
+            </button>
+            <button onclick="switchTab('chats')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group">
+                <i class="fa-solid fa-comments w-6 text-center group-hover:text-brand-green"></i> My Jobs
+            </button>
+            <!-- TIER 3 FEATURE: TEAM -->
+            <button id="nav-team" onclick="switchTab('team')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group hidden">
+                <i class="fa-solid fa-users w-6 text-center text-purple-400 group-hover:text-brand-green"></i> My Team
+            </button>
+
+            <button onclick="switchTab('portfolio')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group">
+                <i class="fa-solid fa-id-card w-6 text-center group-hover:text-brand-green"></i> Portfolio
+            </button>
+            <button onclick="switchTab('wallet')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-300 hover:text-white group">
+                <i class="fa-solid fa-coins w-6 text-center group-hover:text-brand-green"></i> Credit Wallet
+            </button>
+            
+            <button onclick="switchTab('settings')" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 text-brand-amber font-bold transition-colors text-left mt-4 border border-brand-amber/30">
+                <i class="fa-solid fa-key w-6 text-center"></i> Settings
+            </button>
+        </nav>
+    </aside>
+
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden backdrop-blur-sm"></div>
+
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative pt-16 md:pt-0">
+        
+        <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-6 shrink-0 transition-colors">
+            <h2 class="text-xl font-bold text-brand-navy dark:text-white hidden md:block" id="pageTitle">My Dashboard</h2>
+            
+            <div class="flex items-center gap-4 ml-auto">
+                <button onclick="simulateDirectLead()" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors text-xs font-bold border border-purple-200">
+                    <i class="fa-solid fa-bolt"></i> Simulate Direct Lead
+                </button>
+                <div class="bg-brand-green/10 text-brand-green px-4 py-1.5 rounded-full font-bold text-sm border border-brand-green/20">
+                    <i class="fa-solid fa-coins mr-1"></i> <span id="headerPoints">0</span> Credits
+                </div>
+                <button onclick="toggleTheme()" class="w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition-colors text-gray-600 dark:text-brand-amber">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+            
+            <div id="section-dashboard" class="tab-section animate-fade-in">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border-l-4 border-brand-green">
+                        <div class="text-xs font-semibold text-gray-400 uppercase">Available Credits</div>
+                        <div class="text-3xl font-black text-brand-navy dark:text-white mt-1" id="dashPoints">0</div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border-l-4 border-brand-blue">
+                        <div class="text-xs font-semibold text-gray-400 uppercase">Jobs Won</div>
+                        <div class="text-3xl font-black text-brand-navy dark:text-white mt-1" id="dashJobs">0</div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border-l-4 border-purple-500">
+                        <div class="text-xs font-semibold text-gray-400 uppercase">Hot Zone</div>
+                        <div class="text-lg font-bold text-brand-navy dark:text-white mt-1 truncate" id="dashHotzone">Scanning...</div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+                    <h3 class="font-bold mb-4 dark:text-white">Leads Performance</h3>
+                    <div class="h-48 w-full">
+                        <canvas id="leadsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-market" class="tab-section hidden animate-fade-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg dark:text-white">Open Jobs Nearby</h3>
+                    <span class="text-xs bg-brand-green/10 text-brand-green px-2 py-1 rounded animate-pulse">● Live Feed</span>
+                </div>
+                
+                <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl mb-4 text-xs text-blue-800 dark:text-blue-200">
+                    <i class="fa-solid fa-info-circle mr-1"></i> Direct Requests are highlighted in purple. 10 Credits = 1 Lead.
+                </div>
+                <div id="jobMarketList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <!-- TIER 3 FEATURE: TEAM SECTION -->
+            <div id="section-team" class="tab-section hidden animate-fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="font-bold text-xl dark:text-white">Agency Team</h3>
+                        <p class="text-xs text-gray-500">Manage your sub-accounts and junior pros.</p>
+                    </div>
+                    <button onclick="addTeamMember()" class="bg-brand-navy text-white px-4 py-2 rounded-lg font-bold shadow text-sm hover:bg-brand-blue"><i class="fa-solid fa-plus mr-2"></i> Add Agent</button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="teamList">
+                    <!-- Team members injected here -->
+                </div>
+            </div>
+
+            <div id="section-chats" class="tab-section hidden animate-fade-in h-full flex flex-col">
+                <!-- TIER 3 HEADER FOR CHAT -->
+                <div class="flex justify-between items-center mb-4 px-1">
+                    <h3 class="font-bold text-lg dark:text-white">My Jobs</h3>
+                    
+                    <!-- AUTO CHAT TOGGLE -->
+                    <div id="autoChatContainer" class="hidden flex items-center gap-2 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded-full border border-purple-200 dark:border-purple-700">
+                        <span class="text-xs font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1"><i class="fa-solid fa-robot"></i> Auto-Reply</span>
+                        <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggle" id="autoChatToggle" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-gray-300"/>
+                            <label for="autoChatToggle" class="toggle-label block overflow-hidden h-4 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-180px)]">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
+                        <div class="p-4 border-b border-gray-100 dark:border-gray-700 font-bold dark:text-white flex justify-between items-center">
+                            <span>Active Jobs</span>
+                            <span id="autoChatStatus" class="text-[10px] text-purple-500 animate-pulse hidden">AI Active</span>
+                        </div>
+                        <div id="chatList" class="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700"></div>
+                    </div>
+                    
+                    <div class="md:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden hidden md:flex" id="chatWindow">
+                        <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
+                            <div>
+                                <h3 class="font-bold text-brand-navy dark:text-white" id="chatTitle">Select a Job</h3>
+                                <p class="text-xs text-gray-500" id="chatSub">--</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="completeBtn" onclick="completeJob()" class="text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded font-bold hover:bg-green-200"><i class="fa-solid fa-check"></i> Mark Done</button>
+                            </div>
+                        </div>
+                        
+                        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 flex flex-col space-y-2 bg-slate-50 dark:bg-gray-900/50"></div>
+                        
+                        <div id="smartReplyContainer" class="px-4 py-2 bg-white dark:bg-gray-800 border-t dark:border-gray-700 hidden">
+                            <span class="text-[10px] text-brand-amber font-bold uppercase mb-1 block">AI Suggestions (Tier 2)</span>
+                            <div class="flex gap-2 overflow-x-auto whitespace-nowrap" id="smartChips"></div>
+                        </div>
+                        
+                        <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                            <div class="flex gap-2">
+                                <input type="text" id="chatInput" placeholder="Type message..." class="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:border-brand-green" onkeypress="if(event.key==='Enter') sendChat()">
+                                <button onclick="sendChat()" class="p-3 rounded-lg bg-brand-navy text-white hover:bg-blue-900"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-portfolio" class="tab-section hidden animate-fade-in">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 max-w-3xl mx-auto">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="font-bold text-xl dark:text-white">Professional Portfolio</h3>
+                        <button onclick="savePortfolio()" class="bg-brand-green text-white px-4 py-2 rounded-lg font-bold shadow">Save & Publish</button>
+                    </div>
+                    
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-3 mb-6 text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn"></i> Saving your portfolio automatically adds you to the <strong>Customer Directory</strong> for direct hires.
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Business Name</label>
+                                <input type="text" id="profName" class="w-full p-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Trade / Skill</label>
+                                <input type="text" id="profTrade" class="w-full p-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Bio (Publicly Visible)</label>
+                            <textarea id="profBio" rows="4" class="w-full p-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">My Pro ID</label>
+                            <input type="text" id="profID" readonly class="w-full p-3 rounded-lg border bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 font-mono text-xs">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-wallet" class="tab-section hidden animate-fade-in">
+                <div class="bg-gradient-to-r from-[#0A2342] to-[#FFBF00] rounded-xl p-6 text-white shadow-lg mb-6">
+                    <h2 class="text-4xl font-black mb-4"><span id="walletPoints">0</span> Pts</h2>
+                    <button onclick="buyCredits()" class="bg-white text-brand-navy px-4 py-2 rounded-lg font-bold text-sm">Top Up (GHS)</button>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                    <h3 class="font-bold mb-4 dark:text-white">History</h3>
+                    <div id="walletHistoryList" class="space-y-2"></div>
+                </div>
+            </div>
+            
+            <!-- FIXED SETTINGS SECTION -->
+            <div id="section-settings" class="tab-section hidden animate-fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-brand-green/10 p-6 rounded-xl border border-brand-green/30 col-span-1 md:col-span-2">
+                        <h3 class="font-bold text-brand-navy dark:text-white mb-2">Simulation: Switch Tier</h3>
+                        <div class="flex gap-2">
+                            <button onclick="setTier(1)" class="flex-1 py-2 bg-white dark:bg-gray-800 border border-brand-green/20 rounded shadow-sm text-sm">Tier 1 (App.)</button>
+                            <button onclick="setTier(2)" class="flex-1 py-2 bg-white dark:bg-gray-800 border border-brand-green/20 rounded shadow-sm text-sm">Tier 2 (Expert)</button>
+                            <button onclick="setTier(3)" class="flex-1 py-2 bg-white dark:bg-gray-800 border border-brand-green/20 rounded shadow-sm text-sm">Tier 3 (Agency)</button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm col-span-1 md:col-span-2">
+                        <h3 class="font-bold mb-2 dark:text-white">Gemini API Key</h3>
+                        <div class="flex gap-2 mb-4">
+                            <input type="password" id="apiKeyInput" placeholder="Paste Key..." class="flex-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm">
+                            <button onclick="saveApiKey()" class="bg-brand-amber text-brand-navy px-4 rounded font-bold hover:bg-yellow-400 text-sm">Save</button>
+                        </div>
+                        <button onclick="resetData()" class="w-full py-2 bg-red-50 text-red-600 rounded font-bold shadow text-sm border border-red-200 hover:bg-red-100">⚠️ WIPE ALL DATA</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="tier2Modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center border-t-4 border-brand-green">
+            <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-wand-magic-sparkles text-3xl text-purple-600"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Unlock AI Expert</h3>
+            <p class="text-gray-500 text-sm mb-6">Upgrade to Tier 2 to auto-generate proposals and smart replies.</p>
+            <button onclick="document.getElementById('tier2Modal').classList.add('hidden')" class="w-full py-3 bg-brand-navy text-white font-bold rounded-xl">Upgrade Now</button>
+        </div>
+    </div>
+
+    <div id="proposalModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold dark:text-white">AI Proposal Draft</h3>
+                <button onclick="document.getElementById('proposalModal').classList.add('hidden')" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="proposalContent" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-sm mb-4 min-h-[100px] whitespace-pre-wrap dark:text-white">Generating...</div>
+            <button onclick="document.execCommand('copy'); showToast('Copied!')" class="w-full py-2 bg-brand-navy text-white rounded font-bold hover:bg-blue-900">Copy Text</button>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div id="confirmModal" class="fixed inset-0 z-[110] bg-black/60 hidden flex items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 w-full max-w-xs rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-lg font-bold dark:text-white mb-2">Confirm Action</h3>
+            <p id="confirmMessage" class="text-sm text-gray-600 dark:text-gray-400 mb-6"></p>
+            <div class="flex gap-3">
+                <button id="confirmCancelBtn" class="flex-1 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg font-bold">Cancel</button>
+                <button id="confirmYesBtn" class="flex-1 py-2 bg-brand-green text-white rounded-lg font-bold">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+       let points = parseInt(localStorage.getItem('svc_points')) || 100;
+        let history = JSON.parse(localStorage.getItem('svc_history')) || [];
+        let marketJobs = JSON.parse(localStorage.getItem('svc_market')) || [];
+        let universalChats = JSON.parse(localStorage.getItem('balnova_universal_chats')) || [];
+        let portfolio = JSON.parse(localStorage.getItem('svc_portfolio')) || {};
+        let myTeam = JSON.parse(localStorage.getItem('balnova_service_team')) || [];        
+        let currentChatId = null;
+        let myTier = parseInt(localStorage.getItem('svc_tier')) || 1;
+        let apiKey = localStorage.getItem('gemini_api_key') || "";
+        
+        
+        let autoChatActive = localStorage.getItem('svc_auto_chat') === 'true';
+        
+                const pendingAIReplies = new Set(); 
+
+        // --- CUSTOM MODAL HELPER ---
+        function showConfirmModal(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const msg = document.getElementById('confirmMessage');
+                const yes = document.getElementById('confirmYesBtn');
+                const no = document.getElementById('confirmCancelBtn');
+                
+                msg.innerText = message;
+                modal.classList.remove('hidden');
+                
+                const close = (result) => {
+                    modal.classList.add('hidden');
+                    yes.onclick = null;
+                    no.onclick = null;
+                    resolve(result);
+                };
+                
+                yes.onclick = () => close(true);
+                no.onclick = () => close(false);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if(localStorage.getItem('svc_theme')==='dark') document.documentElement.classList.add('dark');
+            if(apiKey) document.getElementById('apiKeyInput').value = apiKey; 
+            loadData();
+            setTier(myTier);
+            renderTeam();
+            setInterval(syncMarket, 2000); 
+            setInterval(syncUniversalChats, 2000);
+            
+            const toggle = document.getElementById('autoChatToggle');
+            toggle.checked = autoChatActive;
+            document.getElementById('autoChatStatus').classList.toggle('hidden', !autoChatActive);
+
+            toggle.addEventListener('change', (e) => {
+                autoChatActive = e.target.checked;
+                localStorage.setItem('svc_auto_chat', autoChatActive); // Save State
+                document.getElementById('autoChatStatus').classList.toggle('hidden', !autoChatActive);
+                if(autoChatActive) showToast("Auto-Reply Activated!");
+            });
+
+            const ctx = document.getElementById('leadsChart').getContext('2d');
+            new Chart(ctx, { type: 'bar', data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label: 'Jobs Won', data: [1, 2, 0, 3, 1, 4, 2], backgroundColor: '#10B981' }] }, options: { responsive: true, maintainAspectRatio: false } });
+        });
+
+        function loadData() {
+            updatePointsUI();
+            updateJobsWonUI();
+            renderMarket();
+            renderChatList();
+            renderHistory();
+            document.getElementById('profName').value = portfolio.name || '';
+            document.getElementById('profTrade').value = portfolio.trade || '';
+            document.getElementById('profBio').value = portfolio.bio || '';
+            document.getElementById('profID').value = portfolio.id || 'Not Published';
+        }
+
+        function syncMarket() {
+            const freshMarket = JSON.parse(localStorage.getItem('svc_market')) || [];
+            if(JSON.stringify(freshMarket) !== JSON.stringify(marketJobs)) {
+                marketJobs = freshMarket;
+                renderMarket();
+            }
+        }
+
+        async function generateAutoChatReply(chatId, userMsg) {
+             if(pendingAIReplies.has(chatId)) return; 
+             pendingAIReplies.add(chatId); 
+
+             const localChat = universalChats.find(c => c.id === chatId);
+             if(localChat) localChat.isTyping = true;
+             
+             try {
+                const prompt = `You are a professional service provider (${portfolio.name || 'Pro'}). You are busy but your AI is handling this chat. 
+                Customer said: "${userMsg}". 
+                Reply politely, professionally, and briefly (max 2 sentences). Ask for details if needed.`;
+                
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+                const d = await r.json();
+                const reply = d.candidates[0].content.parts[0].text;
+                
+                pushMsg(reply, 'pro', chatId);
+                
+             } catch(e) {
+                 console.error("Auto-Reply Failed", e);
+             } finally {
+                 pendingAIReplies.delete(chatId);
+                 const freshLocal = universalChats.find(c => c.id === chatId);
+                 if(freshLocal) freshLocal.isTyping = false;
+             }
+        }
+
+        function renderMarket() {
+            const grid = document.getElementById('jobMarketList');
+            grid.innerHTML = '';
+            
+            const myId = portfolio.id;
+            
+            const visibleJobs = marketJobs.filter(j => {
+                if (j.status !== 'Open') return false;
+                if (j.directTo && j.directTo !== myId) return false; 
+                return true;
+            });
+
+            if(visibleJobs.length === 0) { grid.innerHTML = '<p class="text-gray-400 col-span-2 text-center py-10">No new leads available.</p>'; return; }
+            
+            visibleJobs.forEach((job) => {
+                const isDirect = !!job.directTo;
+                const cardClass = isDirect ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700';
+                const badge = isDirect ? '<span class="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider mb-2 inline-block">Exclusive Request</span>' : '';
+                
+                grid.innerHTML += `
+                    <div class="${cardClass} p-5 rounded-xl shadow-sm border">
+                        ${badge}
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-lg dark:text-white">${job.title}</h4>
+                            <span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">${job.time}</span>
+                        </div>
+                        <div class="text-sm text-gray-500 mb-4"><i class="fa-solid fa-location-dot text-brand-amber"></i> ${job.loc}</div>
+                        <div class="flex gap-2">
+                            <button onclick="acceptJob('${job.id}')" class="flex-1 bg-brand-green hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow text-sm transition-transform active:scale-95">Accept (-10 Credits)</button>
+                            <button onclick="genProposal('${job.title}', '${job.loc}')" class="w-10 bg-brand-navy/10 text-brand-navy dark:text-white rounded-lg flex items-center justify-center hover:bg-brand-navy hover:text-white transition"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function acceptJob(jobId) {
+            if(points < 10) return showToast("Insufficient Credits! Top Up Wallet.", "error");
+            
+            const jobIdx = marketJobs.findIndex(j => j.id === jobId);
+            if(jobIdx === -1) return showToast("Job unavailable", "error");
+            
+            points -= 10;
+            history.unshift({ desc: `Lead: ${marketJobs[jobIdx].title}`, amt: -10, date: new Date().toLocaleDateString() });
+            
+            let adminWallet = JSON.parse(localStorage.getItem('balnova_vendor_wallet')) || [];
+            adminWallet.unshift({ date: new Date().toLocaleDateString(), desc: `Service Lead: ${marketJobs[jobIdx].title}`, amount: 10.00, status: "Revenue" });
+            localStorage.setItem('balnova_vendor_wallet', JSON.stringify(adminWallet));
+
+            const job = marketJobs[jobIdx];
+
+            const chatObj = {
+                id: jobId,
+                title: job.title,
+                loc: job.loc,
+                customer: job.customerName || 'Customer',
+                pro: portfolio.name || 'Service Pro',
+                msgs: [], 
+                status: 'Active',
+                updatedAt: Date.now()
+            };
+
+            universalChats.unshift(chatObj);
+            localStorage.setItem('balnova_universal_chats', JSON.stringify(universalChats));
+
+            if(job.id.startsWith('DIR-')) {
+                let customerChats = JSON.parse(localStorage.getItem('balnova_my_chats')) || [];
+                if(!customerChats.find(c => c.id === jobId)) {
+                    customerChats.push({
+                        id: jobId,
+                        title: job.title,
+                        with: portfolio.name || "Service Pro",
+                        status: "Connected",
+                        msgs: []
+                    });
+                    localStorage.setItem('balnova_my_chats', JSON.stringify(customerChats));
+                }
+            }
+
+            marketJobs[jobIdx].status = 'Connected'; 
+            localStorage.setItem('svc_market', JSON.stringify(marketJobs));
+
+            saveAll();
+            showToast("Connected! Chat created.");
+            switchTab('chats');
+        }
+
+        function syncUniversalChats() {
+            const fresh = JSON.parse(localStorage.getItem('balnova_universal_chats')) || [];
+            
+            // CHECK FOR AUTO-REPLY OPPORTUNITIES (Tier 3)
+            if(autoChatActive && myTier >= 3) {
+                fresh.forEach(chat => {
+                    if(chat.status !== 'Completed' && chat.msgs && chat.msgs.length > 0) {
+                        const lastMsg = chat.msgs[chat.msgs.length - 1];
+                        
+                        // FIX: Check LOCK before firing
+                        if((lastMsg.sender === 'user' || lastMsg.sender === 'customer') && !pendingAIReplies.has(chat.id)) {
+                             generateAutoChatReply(chat.id, lastMsg.text);
+                        }
+                    }
+                });
+            }
+
+            if(JSON.stringify(fresh) !== JSON.stringify(universalChats)) {
+                // Preserve local typing state during sync
+                universalChats = fresh.map(f => {
+                    if(pendingAIReplies.has(f.id)) f.isTyping = true;
+                    return f;
+                });
+                
+                renderChatList();
+                updateJobsWonUI(); 
+                if(currentChatId) {
+                    const chat = universalChats.find(c => c.id === currentChatId);
+                    if(chat) {
+                        const domCount = document.getElementById('chatMessages').children.length;
+                        if(chat.msgs.length !== domCount) {
+                             renderMessages(chat.msgs);
+                        }
+                    }
+                }
+            }
+        }
+
+        function renderChatList() {
+            const list = document.getElementById('chatList');
+            const currentHTML = list.innerHTML;
+            
+            if(universalChats.length === 0) {
+                list.innerHTML = '<div class="p-4 text-gray-400 text-center text-sm">No active jobs.</div>';
+                return;
+            }
+
+            let newHTML = '';
+            universalChats.forEach((c) => {
+                let statusStyle = "";
+                let statusIcon = "";
+                if(c.status === 'Completed') {
+                     statusStyle = "opacity-50 grayscale bg-gray-50 dark:bg-gray-900";
+                     statusIcon = '<i class="fa-solid fa-check-circle text-green-500"></i>';
+                }
+                
+                newHTML += `
+                    <div onclick="openChat('${c.id}')" class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b border-gray-100 dark:border-gray-700 ${statusStyle}">
+                        <div class="flex justify-between">
+                            <div class="font-bold text-sm dark:text-white truncate">${c.title}</div>
+                            ${statusIcon}
+                        </div>
+                        <div class="text-xs text-gray-500">${c.customer} • ${c.loc}</div>
+                    </div>`;
+            });
+
+            if(list.innerHTML !== newHTML) list.innerHTML = newHTML;
+        }
+
+        function openChat(id) {
+            currentChatId = id;
+            document.getElementById('chatWindow').classList.remove('hidden');
+            const chat = universalChats.find(c => c.id === id);
+            if(!chat) return;
+            document.getElementById('chatTitle').innerText = chat.title;
+            document.getElementById('chatSub').innerText = chat.customer;
+            const isDone = chat.status === 'Completed';
+            document.getElementById('chatInput').disabled = isDone;
+            document.getElementById('completeBtn').style.display = isDone ? 'none' : 'block';
+            renderMessages(chat.msgs);
+            
+            if(myTier >= 2 && !isDone) {
+                 document.getElementById('smartReplyContainer').classList.remove('hidden');
+                 if(chat.msgs.length > 0) genSmartReplies(chat.msgs);
+                 else document.getElementById('smartChips').innerHTML = `<button onclick="sendQuick('Hello! I accepted your job.')" class="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full text-xs border">Intro</button>`;
+            } else {
+                 document.getElementById('smartReplyContainer').classList.add('hidden');
+            }
+        }
+
+        function sendChat() {
+            const txt = document.getElementById('chatInput').value;
+            if(!txt) return;
+            pushMsg(txt, 'pro');
+            document.getElementById('chatInput').value = '';
+        }
+        function sendQuick(txt) { pushMsg(txt, 'pro'); }
+
+        function pushMsg(txt, sender, specificChatId = null) {
+            const targetId = specificChatId || currentChatId;
+            const idx = universalChats.findIndex(c => c.id === targetId);
+            
+            if(idx > -1) {
+                if(!universalChats[idx].msgs) universalChats[idx].msgs = [];
+                universalChats[idx].msgs.push({ text: txt, sender: sender });
+                localStorage.setItem('balnova_universal_chats', JSON.stringify(universalChats));
+                
+                // If we are currently viewing this chat, render immediately
+                if(targetId === currentChatId) {
+                    renderMessages(universalChats[idx].msgs);
+                }
+                syncUniversalChats();
+            }
+        }
+
+        function renderMessages(msgs) {
+            const area = document.getElementById('chatMessages');
+            area.innerHTML = '';
+            if(!msgs || msgs.length === 0) {
+                area.innerHTML = '<div class="text-center text-xs text-gray-400 mt-4">Start the conversation...</div>';
+                return;
+            }
+            msgs.forEach(m => {
+                const cls = m.sender === 'pro' ? 'chat-out' : 'chat-in';
+                area.innerHTML += `<div class="chat-bubble ${cls}">${m.text}</div>`;
+            });
+            area.scrollTop = area.scrollHeight;
+        }
+
+        async function completeJob() {
+            if(await showConfirmModal("Mark this job as Done?")) {
+                const idx = universalChats.findIndex(c => c.id === currentChatId);
+                if(idx > -1) {
+                    universalChats[idx].status = 'Completed'; 
+                    localStorage.setItem('balnova_universal_chats', JSON.stringify(universalChats));
+                    updateJobsWonUI(); 
+                    showToast("Job Completed!");
+                    syncUniversalChats();
+                    openChat(currentChatId); 
+                }
+            }
+        }
+
+        function saveAll() {
+            localStorage.setItem('svc_points', points);
+            localStorage.setItem('svc_history', JSON.stringify(history));
+            updatePointsUI();
+            updateJobsWonUI();
+        }
+        function updatePointsUI() {
+            document.getElementById('headerPoints').innerText = points;
+            document.getElementById('dashPoints').innerText = points;
+            document.getElementById('walletPoints').innerText = points; 
+        }
+        function updateJobsWonUI() {
+            const won = universalChats.filter(c => c.status === 'Completed').length;
+            document.getElementById('dashJobs').innerText = won;
+        }
+        
+        function renderHistory() {
+            const list = document.getElementById('walletHistoryList'); list.innerHTML = '';
+            history.forEach(h => { list.innerHTML += `<div class="flex justify-between text-sm py-2 border-b dark:border-gray-700"><span>${h.desc}</span><span class="text-red-500 font-mono">${h.amt}</span></div>`; });
+        }
+        
+        // --- TEAM LOGIC ---
+        function renderTeam() {
+            const list = document.getElementById('teamList');
+            list.innerHTML = '';
+            if(myTeam.length === 0) list.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10">No agents yet. Add one to start scaling.</div>';
+            
+            myTeam.forEach((member, idx) => {
+                list.innerHTML += `
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-brand-navy rounded-full text-white flex items-center justify-center font-bold">${member.name.charAt(0)}</div>
+                            <div>
+                                <h4 class="font-bold dark:text-white">${member.name}</h4>
+                                <p class="text-xs text-gray-500">${member.role}</p>
+                            </div>
+                        </div>
+                        <button onclick="removeTeam(${idx})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+            });
+        }
+        
+        async function addTeamMember() {
+    const names = ["Kwesi Agent", "Ama Support", "Kojo Tech", "Esi Sales"];
+    const roles = ["Junior Agent", "Support Lead", "Field Tech"];
+    const rName = names[Math.floor(Math.random()*names.length)];
+    const rRole = roles[Math.floor(Math.random()*roles.length)];
+    
+    if(await showConfirmModal(`Add ${rName} as ${rRole}?`)) {
+        myTeam.push({ name: rName, role: rRole });
+        // Correct Key:
+        localStorage.setItem('balnova_service_team', JSON.stringify(myTeam));
+        renderTeam();
+        showToast("Service Agent Added!");
+    }
+}
+        
+        async function removeTeam(idx) {
+    if(await showConfirmModal("Remove Agent?")) {
+        myTeam.splice(idx, 1);
+        // Correct Key:
+        localStorage.setItem('balnova_service_team', JSON.stringify(myTeam));
+        renderTeam();
+    }
+}
+
+        function savePortfolio() {
+            portfolio.name = document.getElementById('profName').value;
+            portfolio.trade = document.getElementById('profTrade').value;
+            portfolio.bio = document.getElementById('profBio').value;
+            
+            if(!portfolio.id) {
+                portfolio.id = `PRO-${Date.now()}`;
+            }
+            
+            localStorage.setItem('svc_portfolio', JSON.stringify(portfolio));
+            document.getElementById('profID').value = portfolio.id;
+            
+            let dir = JSON.parse(localStorage.getItem('balnova_pro_directory')) || [];
+            dir = dir.filter(p => p.id !== portfolio.id); 
+            dir.push({ id: portfolio.id, name: portfolio.name, trade: portfolio.trade, bio: portfolio.bio, stars: 5.0 });
+            localStorage.setItem('balnova_pro_directory', JSON.stringify(dir));
+            
+            showToast("Profile Published to Directory");
+        }
+        
+        function buyCredits() { 
+            points += 50; 
+            history.unshift({desc:"Top Up", amt:"+50"}); 
+            let adminWallet = JSON.parse(localStorage.getItem('balnova_vendor_wallet')) || [];
+            adminWallet.unshift({ date: new Date().toLocaleDateString(), desc: `Credit Purchase (Pro Top-up)`, amount: 50.00, status: "Revenue" });
+            localStorage.setItem('balnova_vendor_wallet', JSON.stringify(adminWallet));
+            saveAll(); showToast("Bought 50 Credits"); 
+        }
+
+        function genProposal(title, loc) {
+            if(myTier < 2) return document.getElementById('tier2Modal').classList.remove('hidden');
+            document.getElementById('proposalModal').classList.remove('hidden');
+            document.getElementById('proposalContent').innerText = "AI Drafting...";
+            callGemini(`Write a short, professional proposal for a "${title}" job in "${loc}". Mention pricing and availability.`, 'proposalContent');
+        }
+        async function genSmartReplies(msgs) {
+            if(!apiKey) return;
+            const lastMsg = msgs[msgs.length - 1].text;
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: `Suggest 3 short replies to: "${lastMsg}". Format: Reply1|Reply2|Reply3` }] }] }) });
+                const d = await r.json();
+                const raw = d.candidates[0].content.parts[0].text;
+                const replies = raw.split('|');
+                const chips = document.getElementById('smartChips');
+                chips.innerHTML = '';
+                replies.forEach(r => {
+                    chips.innerHTML += `<button onclick="sendQuick('${r.trim()}')" class="bg-brand-amber/10 text-brand-navy dark:text-brand-amber border border-brand-amber px-3 py-1 rounded-full text-xs whitespace-nowrap hover:bg-brand-amber hover:text-brand-navy">${r.trim().substring(0, 20)}...</button>`;
+                });
+            } catch(e) {}
+        }
+        async function callGemini(prompt, id) {
+            if(!apiKey) { document.getElementById(id).innerText = "No API Key Saved."; return; }
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+                const d = await r.json();
+                document.getElementById(id).innerText = d.candidates[0].content.parts[0].text;
+            } catch(e) { document.getElementById(id).innerText = "AI Error."; }
+        }
+        function showToast(m, t='success') { const d=document.createElement('div'); d.className=`${t==='success'?'bg-brand-navy':'bg-red-600'} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3`; d.innerText=m; document.getElementById('toastContainer').appendChild(d); setTimeout(()=>d.remove(),3000); }
+        function switchTab(n) { document.querySelectorAll('.tab-section').forEach(e => e.classList.add('hidden')); document.getElementById(`section-${n}`).classList.remove('hidden'); if(window.innerWidth<768) toggleSidebar(); }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('sidebarOverlay').classList.toggle('hidden'); }
+        function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.setItem('svc_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); }
+        
+        async function resetData() { 
+            if(await showConfirmModal("Wipe all data?")) { 
+                localStorage.clear(); 
+                location.reload(); 
+            } 
+        }
+        
+        function saveApiKey() { apiKey = document.getElementById('apiKeyInput').value; localStorage.setItem('gemini_api_key', apiKey); showToast("Key Saved"); }
+        function setTier(t) { 
+            myTier = t; localStorage.setItem('svc_tier', t); 
+            document.getElementById('tierBadge').innerText = t === 1 ? 'APP.' : (t === 2 ? 'EXPERT' : 'AGENCY');
+            showToast(`Switched to Tier ${t}`);
+            
+            // Toggle Visibility
+            document.getElementById('nav-team').classList.toggle('hidden', t < 3);
+            document.getElementById('autoChatContainer').classList.toggle('hidden', t < 3);
+            
+            // Disable Auto Chat if downgrading
+            if(t < 3 && autoChatActive) {
+                autoChatActive = false;
+                document.getElementById('autoChatToggle').checked = false;
+                document.getElementById('autoChatStatus').classList.add('hidden');
+            }
+        }
+        function simulateDirectLead() {
+            const jobId = `DIR-${Date.now()}`;
+            const job = { 
+                id: jobId, 
+                title: "Direct Lead: AC Repair", 
+                loc: "Phone Contact", 
+                customer: "Direct Client",
+                status: 'Open', 
+                time: "Now",
+                directTo: portfolio.id 
+            };
+            
+            let mkt = JSON.parse(localStorage.getItem('svc_market')) || [];
+            mkt.unshift(job);
+            localStorage.setItem('svc_market', JSON.stringify(mkt));
+            
+            showToast("Direct Lead Received!");
+            switchTab('market');
+        }
+    </script>
+</body>
+</html>

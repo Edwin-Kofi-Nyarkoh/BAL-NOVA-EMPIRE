@@ -6,6 +6,7 @@ import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useDialog } from "@/components/ui/dialog-service"
+import { useOrdersQuery, useRiderAdminQuery, useSettingsQuery, useSystemSettingsQuery, useUsersQuery } from "@/lib/query"
 
 type UserRow = {
   id: string
@@ -43,7 +44,12 @@ type OrderRow = {
 export default function SystemConfigPage() {
   const dialog = useDialog()
   const [users, setUsers] = useState<UserRow[]>([])
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
+  const usersQuery = useUsersQuery()
+  const settingsQuery = useSettingsQuery()
+  const riderAdminQuery = useRiderAdminQuery()
+  const ordersQuery = useOrdersQuery(true)
+  const systemSettingsQuery = useSystemSettingsQuery()
+  const status = usersQuery.isError ? "error" : usersQuery.isLoading ? "loading" : "idle"
   const [message, setMessage] = useState("")
   const [creating, setCreating] = useState(false)
   const [busyUserId, setBusyUserId] = useState<string | null>(null)
@@ -62,12 +68,12 @@ export default function SystemConfigPage() {
   const [savingBaySettings, setSavingBaySettings] = useState(false)
   const [resettingRiderCash, setResettingRiderCash] = useState(false)
   const [riderAdminRows, setRiderAdminRows] = useState<RiderAdminRow[]>([])
-  const [loadingRiders, setLoadingRiders] = useState(false)
+  const loadingRiders = riderAdminQuery.isLoading
   const [assignOrderId, setAssignOrderId] = useState("")
   const [assignRiderId, setAssignRiderId] = useState("")
   const [assigningOrder, setAssigningOrder] = useState(false)
   const [orders, setOrders] = useState<OrderRow[]>([])
-  const [loadingOrders, setLoadingOrders] = useState(false)
+  const loadingOrders = ordersQuery.isLoading
   const [dispatchRadiusKm, setDispatchRadiusKm] = useState("")
   const [savingDispatchRadius, setSavingDispatchRadius] = useState(false)
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" })
@@ -80,18 +86,8 @@ export default function SystemConfigPage() {
   }, [users])
 
   async function loadUsers() {
-    setStatus("loading")
     setMessage("")
-    try {
-      const res = await fetch("/api/users")
-      if (!res.ok) throw new Error("Unable to load users")
-      const data = await res.json()
-      setUsers(Array.isArray(data.users) ? data.users : [])
-      setStatus("idle")
-    } catch (err) {
-      setStatus("error")
-      setMessage(err instanceof Error ? err.message : "Failed to load users")
-    }
+    await usersQuery.refetch()
   }
 
   async function createUser(e: React.FormEvent<HTMLFormElement>) {
@@ -167,41 +163,52 @@ export default function SystemConfigPage() {
   }
 
   useEffect(() => {
-    loadUsers()
-    void loadBaySettings()
-    void loadRiders()
-    void loadOrders()
-    void loadSystemSettings()
-  }, [])
+    setUsers((usersQuery.data || []) as UserRow[])
+  }, [usersQuery.data])
+
+  useEffect(() => {
+    setRiderAdminRows((riderAdminQuery.data || []) as RiderAdminRow[])
+  }, [riderAdminQuery.data])
+
+  useEffect(() => {
+    setOrders((ordersQuery.data || []) as OrderRow[])
+  }, [ordersQuery.data])
+
+  useEffect(() => {
+    const settings = settingsQuery.data?.settings
+    if (!settings) return
+    if (settings.bayCapacity) {
+      setBaySettings((prev) => ({ ...prev, capacity: String(settings.bayCapacity) }))
+    }
+    if (settings.bayHotPct) {
+      setBaySettings((prev) => ({ ...prev, hotPct: String(settings.bayHotPct) }))
+    }
+    if (settings.bayACapacity) {
+      setBaySettings((prev) => ({ ...prev, bayACapacity: String(settings.bayACapacity) }))
+    }
+    if (settings.bayBCapacity) {
+      setBaySettings((prev) => ({ ...prev, bayBCapacity: String(settings.bayBCapacity) }))
+    }
+    if (settings.bayAHotPct) {
+      setBaySettings((prev) => ({ ...prev, bayAHotPct: String(settings.bayAHotPct) }))
+    }
+    if (settings.bayBHotPct) {
+      setBaySettings((prev) => ({ ...prev, bayBHotPct: String(settings.bayBHotPct) }))
+    }
+    if (typeof settings.bayAutoHot === "boolean") {
+      setBaySettings((prev) => ({ ...prev, autoHot: settings.bayAutoHot as boolean }))
+    }
+  }, [settingsQuery.data])
+
+  useEffect(() => {
+    const dispatch = systemSettingsQuery.data?.settings?.dispatchRadiusKm
+    if (typeof dispatch === "number") {
+      setDispatchRadiusKm(String(dispatch))
+    }
+  }, [systemSettingsQuery.data])
 
   async function loadBaySettings() {
-    try {
-      const res = await fetch("/api/settings")
-      const data = await res.json().catch(() => ({}))
-    if (data?.settings?.bayCapacity) {
-      setBaySettings((prev) => ({ ...prev, capacity: String(data.settings.bayCapacity) }))
-    }
-    if (data?.settings?.bayHotPct) {
-      setBaySettings((prev) => ({ ...prev, hotPct: String(data.settings.bayHotPct) }))
-    }
-    if (data?.settings?.bayACapacity) {
-      setBaySettings((prev) => ({ ...prev, bayACapacity: String(data.settings.bayACapacity) }))
-    }
-    if (data?.settings?.bayBCapacity) {
-      setBaySettings((prev) => ({ ...prev, bayBCapacity: String(data.settings.bayBCapacity) }))
-    }
-    if (data?.settings?.bayAHotPct) {
-      setBaySettings((prev) => ({ ...prev, bayAHotPct: String(data.settings.bayAHotPct) }))
-    }
-    if (data?.settings?.bayBHotPct) {
-      setBaySettings((prev) => ({ ...prev, bayBHotPct: String(data.settings.bayBHotPct) }))
-    }
-    if (typeof data?.settings?.bayAutoHot === "boolean") {
-      setBaySettings((prev) => ({ ...prev, autoHot: data.settings.bayAutoHot }))
-    }
-  } catch {
-      // ignore
-  }
+    await settingsQuery.refetch()
   }
 
   async function saveBaySettings() {
@@ -227,47 +234,22 @@ export default function SystemConfigPage() {
           bayAutoHot
         })
       })
+      await settingsQuery.refetch()
     } finally {
       setSavingBaySettings(false)
     }
   }
 
   async function loadRiders() {
-    setLoadingRiders(true)
-    try {
-      const res = await fetch("/api/rider/admin")
-      const data = await res.json().catch(() => ({}))
-      if (res.ok) {
-        setRiderAdminRows(Array.isArray(data.riders) ? data.riders : [])
-      }
-    } finally {
-      setLoadingRiders(false)
-    }
+    await riderAdminQuery.refetch()
   }
 
   async function loadOrders() {
-    setLoadingOrders(true)
-    try {
-      const res = await fetch("/api/orders?all=1")
-      const data = await res.json().catch(() => ({}))
-      if (res.ok) {
-        setOrders(Array.isArray(data.orders) ? data.orders : [])
-      }
-    } finally {
-      setLoadingOrders(false)
-    }
+    await ordersQuery.refetch()
   }
 
   async function loadSystemSettings() {
-    try {
-      const res = await fetch("/api/system-settings")
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && typeof data?.settings?.dispatchRadiusKm === "number") {
-        setDispatchRadiusKm(String(data.settings.dispatchRadiusKm))
-      }
-    } catch {
-      // ignore
-    }
+    await systemSettingsQuery.refetch()
   }
 
   async function saveDispatchRadius() {
@@ -287,6 +269,7 @@ export default function SystemConfigPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error || "Save failed")
       setMessage("Dispatch radius saved.")
+      await systemSettingsQuery.refetch()
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Save failed")
     } finally {
@@ -302,7 +285,7 @@ export default function SystemConfigPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "clear_tasks", riderId })
     })
-    await loadRiders()
+    await riderAdminQuery.refetch()
   }
 
   async function assignOrderToRider() {
@@ -322,7 +305,8 @@ export default function SystemConfigPage() {
       if (!res.ok) throw new Error(data?.error || "Assign failed")
       setMessage("Order assigned to rider.")
       setAssignOrderId("")
-      await loadRiders()
+      await riderAdminQuery.refetch()
+      await ordersQuery.refetch()
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Assign failed")
     } finally {

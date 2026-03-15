@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/server/api-auth"
 import { logAuditEvent } from "@/lib/server/audit"
 import { applyCors, corsHeaders } from "@/lib/server/cors"
 import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { proxyToMicroservice } from "@/lib/server/microservice"
 import { z } from "zod"
 
 const inventoryItemSchema = z.object({
@@ -40,7 +41,10 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const proxied = await proxyToMicroservice(req, "api", "inventory", "GET").catch(() => null)
+  if (proxied && proxied.ok) return applyCors(proxied)
+
   const items = await prisma.inventoryItem.findMany({ orderBy: { createdAt: "desc" } })
   return Response.json({ items }, { headers: corsHeaders })
 }

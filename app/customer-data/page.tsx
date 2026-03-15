@@ -1,70 +1,25 @@
 // app/customer-data/page.tsx
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
+import { useOrdersQuery, useUsersQuery } from "@/lib/query"
 import { formatCurrency } from "@/lib/utils"
 
-type UserRow = {
-  id: string
-  name: string | null
-  email: string
-  role: string
-  createdAt: string
-}
-
-type OrderRow = {
-  id: string
-  userId?: string | null
-  item: string
-  price: number
-  status: string
-  createdAt: string
-}
-
 export default function CustomerDataPage() {
-  const [users, setUsers] = useState<UserRow[]>([])
-  const [orders, setOrders] = useState<OrderRow[]>([])
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
-  const [now, setNow] = useState<number | null>(null)
-
-  useEffect(() => {
-    let active = true
-    async function load() {
-      setStatus("loading")
-      try {
-        const [usersRes, ordersRes] = await Promise.all([
-          fetch("/api/users"),
-          fetch("/api/orders?all=1")
-        ])
-        const usersJson = usersRes.ok ? await usersRes.json().catch(() => ({})) : {}
-        const ordersJson = ordersRes.ok ? await ordersRes.json().catch(() => ({})) : {}
-        if (!active) return
-        setUsers(Array.isArray(usersJson.users) ? usersJson.users : [])
-        setOrders(Array.isArray(ordersJson.orders) ? ordersJson.orders : [])
-        setStatus("idle")
-      } catch {
-        if (!active) return
-        setStatus("error")
-      }
-    }
-    load()
-    return () => {
-      active = false
-    }
-  }, [])
-
-  useEffect(() => {
-    setNow(Date.now())
-  }, [])
+  const usersQuery = useUsersQuery()
+  const ordersQuery = useOrdersQuery(true)
+  const users = usersQuery.data || []
+  const orders = ordersQuery.data || []
+  const status = usersQuery.isError || ordersQuery.isError ? "error" : "idle"
+  const now = Date.now()
 
   const totalUsers = users.length
   const totalOrders = orders.length
   const totalRevenue = orders.reduce((sum, o) => sum + o.price, 0)
 
   const newUsers7d = useMemo(() => {
-    if (!now) return 0
     const cutoff = now - 7 * 24 * 60 * 60 * 1000
     return users.filter((u) => new Date(u.createdAt).getTime() >= cutoff).length
   }, [users, now])

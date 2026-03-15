@@ -4,13 +4,13 @@ import { getServerSession } from "next-auth/next"
 import { authConfig } from "@/lib/auth"
 import { logAuditEvent } from "@/lib/server/audit"
 import { notifyPartnerSignup } from "@/lib/server/notifications"
-import { Prisma } from "@prisma/client"
+import { Prisma } from "../../../../generated/prisma"
 import { z } from "zod"
-import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { getClientIp, rateLimitSecure } from "@/lib/server/rate-limit"
 
 export async function POST(req: Request) {
   const ip = getClientIp(req)
-  const limiter = rateLimit(`signup:${ip}`, 10, 10 * 60 * 1000)
+  const limiter = await rateLimitSecure(`signup:${ip}`, 10, 10 * 60 * 1000)
   if (!limiter.ok) {
     return Response.json({ error: "Too many attempts. Try again later." }, { status: 429 })
   }

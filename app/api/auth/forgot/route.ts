@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/server/prisma"
 import { notifyPasswordReset } from "@/lib/server/notifications"
-import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { getClientIp, rateLimitSecure } from "@/lib/server/rate-limit"
 import { z } from "zod"
 import crypto from "crypto"
 
@@ -10,7 +10,7 @@ const forgotSchema = z.object({
 
 export async function POST(req: Request) {
   const ip = getClientIp(req)
-  const limiter = rateLimit(`forgot:${ip}`, 6, 10 * 60 * 1000)
+  const limiter = await rateLimitSecure(`forgot:${ip}`, 6, 10 * 60 * 1000)
   if (!limiter.ok) {
     return Response.json({ error: "Too many requests. Try again later." }, { status: 429 })
   }

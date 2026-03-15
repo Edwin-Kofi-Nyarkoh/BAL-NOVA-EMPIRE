@@ -5,7 +5,7 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   let db = "ok"
   let error = ""
   try {

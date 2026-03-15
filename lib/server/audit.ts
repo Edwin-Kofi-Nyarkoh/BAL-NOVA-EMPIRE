@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/server/prisma"
-import { Prisma } from "@prisma/client"
+import { Prisma } from "../../generated/prisma"
 
 type Actor = {
   id?: string | null

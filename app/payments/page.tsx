@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
+import { usePaymentsQuery } from "@/lib/query"
 import { formatCurrency } from "@/lib/utils"
 
 type Payment = {
@@ -19,48 +20,13 @@ type Payment = {
 }
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
-  const [message, setMessage] = useState("")
+  const paymentsQuery = usePaymentsQuery()
+  const payments = (paymentsQuery.data || []) as Payment[]
+  const status = paymentsQuery.isError ? "error" : paymentsQuery.isLoading ? "loading" : "idle"
+  const message = paymentsQuery.isError ? "Unable to load payments" : ""
   const [filter, setFilter] = useState("all")
   const [sendingId, setSendingId] = useState<string | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
-  const [nextRetryIn, setNextRetryIn] = useState(0)
-  const [lastUpdated, setLastUpdated] = useState<string>("")
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    void loadPayments()
-    return () => {
-      if (retryTimer.current) clearTimeout(retryTimer.current)
-    }
-  }, [])
-
-  async function loadPayments(attempt = 0) {
-    setStatus("loading")
-    setMessage("")
-    setNextRetryIn(0)
-    try {
-      const res = await fetch("/api/payments")
-      if (!res.ok) throw new Error("Unable to load payments")
-      const data = await res.json().catch(() => ({}))
-      setPayments(Array.isArray(data.payments) ? data.payments : [])
-      setStatus("idle")
-      setRetryCount(0)
-      setLastUpdated(new Date().toLocaleTimeString())
-    } catch (err) {
-      setStatus("error")
-      setMessage(err instanceof Error ? err.message : "Unable to load payments")
-      if (attempt < 2) {
-        const delay = attempt === 0 ? 2000 : 5000
-        setRetryCount(attempt + 1)
-        setNextRetryIn(delay / 1000)
-        retryTimer.current = setTimeout(() => {
-          void loadPayments(attempt + 1)
-        }, delay)
-      }
-    }
-  }
+  const lastUpdated = paymentsQuery.dataUpdatedAt ? new Date(paymentsQuery.dataUpdatedAt).toLocaleTimeString() : ""
 
   const filtered = useMemo(() => {
     if (filter === "all") return payments
@@ -87,7 +53,7 @@ export default function PaymentsPage() {
               <p className="text-xs text-gray-500">Review pending and successful transactions.</p>
             </div>
             <button
-              onClick={() => loadPayments(0)}
+              onClick={() => void paymentsQuery.refetch()}
               className="text-xs font-bold px-3 py-2 rounded-full border border-myamber/40 text-myamber hover:bg-myamber/10 transition-colors"
             >
               Refresh
@@ -95,10 +61,9 @@ export default function PaymentsPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
             {lastUpdated ? <span>Last updated: {lastUpdated}</span> : null}
-            {nextRetryIn > 0 ? <span>Retrying in {nextRetryIn}s…</span> : null}
             {status === "error" ? (
               <button
-                onClick={() => loadPayments(0)}
+                onClick={() => void paymentsQuery.refetch()}
                 className="text-[11px] font-semibold text-blue-600 hover:underline"
               >
                 Retry now
@@ -137,7 +102,7 @@ export default function PaymentsPage() {
                     <div>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">{p.txRef}</p>
                       <p className="text-xs text-gray-500">
-                        {p.user?.email || "Unknown user"} · {p.channel} · {p.provider}
+                        {p.user?.email || "Unknown user"} - {p.channel} - {p.provider}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -168,7 +133,7 @@ export default function PaymentsPage() {
                   </div>
                   <div className="mt-2 text-[11px] text-gray-400">
                     Created {new Date(p.createdAt).toLocaleString()}
-                    {p.completedAt ? ` · Completed ${new Date(p.completedAt).toLocaleString()}` : ""}
+                    {p.completedAt ? ` - Completed ${new Date(p.completedAt).toLocaleString()}` : ""}
                   </div>
                 </div>
               ))}

@@ -1,43 +1,27 @@
-// app/financial-stats/page.tsx
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { MetricCard } from "@/components/ui/metric-card"
 import { LineChart } from "@/components/ui/line-chart"
-
-type Analytics = {
-  totals: {
-    inventoryCount: number
-    lowInventoryCount: number
-    ordersCount: number
-    chatsCount: number
-    usersCount: number
-    adminsCount: number
-    revenue: number
-  }
-  last24h: {
-    orders: number
-    chats: number
-    newUsers: number
-  }
-}
-
-type TrendSeries = {
-  date: string
-  orders: number
-  revenue: number
-}
+import { useAnalyticsQuery, useAnalyticsTrendsQuery } from "@/lib/query"
 
 export default function FinancialStatsPage() {
-  const [data, setData] = useState<Analytics | null>(null)
-  const [trends, setTrends] = useState<TrendSeries[]>([])
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
-  const [message, setMessage] = useState("")
-  const [nextRetryIn, setNextRetryIn] = useState(0)
-  const [lastUpdated, setLastUpdated] = useState<string>("")
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const analyticsQuery = useAnalyticsQuery()
+  const trendsQuery = useAnalyticsTrendsQuery()
+  const data = analyticsQuery.data || null
+  const trends = trendsQuery.data || []
+  const status =
+    analyticsQuery.isError || trendsQuery.isError
+      ? "error"
+      : analyticsQuery.isLoading || trendsQuery.isLoading
+        ? "loading"
+        : "idle"
+  const message = status === "error" ? "Unable to load analytics." : ""
+  const lastUpdated = analyticsQuery.dataUpdatedAt
+    ? new Date(analyticsQuery.dataUpdatedAt).toLocaleTimeString()
+    : ""
 
   const bars = useMemo(() => {
     if (!data) return []
@@ -53,46 +37,10 @@ export default function FinancialStatsPage() {
     return Math.max(...bars.map((b) => b.value), 1)
   }, [bars])
 
-  async function load(attempt = 0) {
-    setStatus("loading")
-    setMessage("")
-    setNextRetryIn(0)
-    try {
-      const [res, trendRes] = await Promise.all([
-        fetch("/api/analytics"),
-        fetch("/api/analytics/trends")
-      ])
-      if (res.status === 401 || res.status === 403 || trendRes.status === 401 || trendRes.status === 403) {
-        setStatus("error")
-        setMessage("Please sign in to view analytics.")
-        return
-      }
-      if (!res.ok || !trendRes.ok) throw new Error("Unable to load analytics")
-      const json = await res.json()
-      const trendJson = await trendRes.json()
-      setData(json)
-      setTrends(Array.isArray(trendJson.series) ? trendJson.series : [])
-      setStatus("idle")
-      setLastUpdated(new Date().toLocaleTimeString())
-    } catch {
-      setStatus("error")
-      setMessage("Unable to load analytics.")
-      if (attempt < 2) {
-        const delay = attempt === 0 ? 2500 : 6000
-        setNextRetryIn(delay / 1000)
-        retryTimer.current = setTimeout(() => {
-          void load(attempt + 1)
-        }, delay)
-      }
-    }
+  const refreshAll = () => {
+    void analyticsQuery.refetch()
+    void trendsQuery.refetch()
   }
-
-  useEffect(() => {
-    load()
-    return () => {
-      if (retryTimer.current) clearTimeout(retryTimer.current)
-    }
-  }, [])
 
   return (
     <AdminShell title="Financial Stats" subtitle="Performance metrics and trends">
@@ -125,7 +73,7 @@ export default function FinancialStatsPage() {
                   <p className="text-xs text-gray-500">Orders, chats, and new users.</p>
                 </div>
                 <button
-                  onClick={() => load(0)}
+                  onClick={refreshAll}
                   className="text-xs font-bold px-3 py-2 rounded-full border border-myamber/40 text-myamber hover:bg-myamber/10 transition-colors"
                 >
                   Refresh
@@ -133,10 +81,9 @@ export default function FinancialStatsPage() {
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
                 {lastUpdated ? <span>Last updated: {lastUpdated}</span> : null}
-                {nextRetryIn > 0 ? <span>Retrying in {nextRetryIn}s…</span> : null}
                 {status === "error" ? (
                   <button
-                    onClick={() => load(0)}
+                    onClick={refreshAll}
                     className="text-[11px] font-semibold text-blue-600 hover:underline"
                   >
                     Retry now
@@ -226,7 +173,7 @@ export default function FinancialStatsPage() {
                 <p className="text-xs text-gray-500">Orders and revenue trajectory.</p>
               </div>
               <button
-                onClick={() => load(0)}
+                onClick={refreshAll}
                 className="text-xs font-bold px-3 py-2 rounded-full border border-myamber/40 text-myamber hover:bg-myamber/10 transition-colors"
               >
                 Refresh

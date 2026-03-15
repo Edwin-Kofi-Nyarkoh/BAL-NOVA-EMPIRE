@@ -3,6 +3,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { AppSessionProvider } from "@/components/session-provider"
 import { DialogProvider } from "@/components/ui/dialog-service"
 import { ToastProvider } from "@/components/ui/toast-service"
+import { AppQueryProvider } from "@/components/query-provider"
+import { ApiProxyProvider } from "@/components/api-proxy-provider"
 import "./globals.css"
 import {Inter, JetBrains_Mono} from "next/font/google"
 
@@ -29,18 +31,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${jetBrainsMono.variable}`}>
       <body suppressHydrationWarning className="antialiased transition-colors duration-300">
         <AppSessionProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ToastProvider>
-              <DialogProvider>
-                {children}
-              </DialogProvider>
-            </ToastProvider>
-          </ThemeProvider>
+          <ApiProxyProvider>
+            <AppQueryProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <ToastProvider>
+                  <DialogProvider>
+                    {children}
+                  </DialogProvider>
+                </ToastProvider>
+              </ThemeProvider>
+            </AppQueryProvider>
+          </ApiProxyProvider>
         </AppSessionProvider>
       </body>
     </html>

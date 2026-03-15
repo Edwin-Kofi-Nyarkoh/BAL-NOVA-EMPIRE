@@ -1,43 +1,15 @@
 // app/qc-firewall/page.tsx
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
-
-type AuditLog = {
-  id: string
-  actorEmail?: string | null
-  action: string
-  entityType: string
-  entityId?: string | null
-  createdAt: string
-}
+import { useAuditLogsQuery } from "@/lib/query"
 
 export default function QCFirewallPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([])
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
-
-  useEffect(() => {
-    let active = true
-    async function load() {
-      setStatus("loading")
-      try {
-        const res = await fetch("/api/audit?take=120")
-        const data = await res.json().catch(() => ({}))
-        if (!active) return
-        setLogs(Array.isArray(data.logs) ? data.logs : [])
-        setStatus("idle")
-      } catch {
-        if (!active) return
-        setStatus("error")
-      }
-    }
-    load()
-    return () => {
-      active = false
-    }
-  }, [])
+  const logsQuery = useAuditLogsQuery(120)
+  const logs = logsQuery.data || []
+  const status = logsQuery.isError ? "error" : "idle"
 
   const actionCounts = useMemo(() => {
     return logs.reduce((acc, log) => {

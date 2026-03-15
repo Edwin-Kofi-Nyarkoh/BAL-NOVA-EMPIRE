@@ -1,60 +1,18 @@
 // app/financial-cockpit/page.tsx
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
+import { useLedgerQuery, useOrdersQuery } from "@/lib/query"
 import { formatCurrency } from "@/lib/utils"
 
-type LedgerEntry = {
-  id: string
-  type: string
-  amount: number
-  status: string
-  note?: string | null
-  createdAt: string
-  userId: string
-}
-
-type OrderRow = {
-  id: string
-  item: string
-  price: number
-  status: string
-  createdAt: string
-  origin?: string | null
-}
-
 export default function FinancialCockpitPage() {
-  const [ledger, setLedger] = useState<LedgerEntry[]>([])
-  const [orders, setOrders] = useState<OrderRow[]>([])
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
-
-  useEffect(() => {
-    let active = true
-    async function load() {
-      setStatus("loading")
-      try {
-        const [ledgerRes, ordersRes] = await Promise.all([
-          fetch("/api/finance/ledger?limit=200"),
-          fetch("/api/orders?all=1")
-        ])
-        const ledgerJson = ledgerRes.ok ? await ledgerRes.json().catch(() => ({})) : {}
-        const ordersJson = ordersRes.ok ? await ordersRes.json().catch(() => ({})) : {}
-        if (!active) return
-        setLedger(Array.isArray(ledgerJson.entries) ? ledgerJson.entries : [])
-        setOrders(Array.isArray(ordersJson.orders) ? ordersJson.orders : [])
-        setStatus("idle")
-      } catch {
-        if (!active) return
-        setStatus("error")
-      }
-    }
-    load()
-    return () => {
-      active = false
-    }
-  }, [])
+  const ledgerQuery = useLedgerQuery(200)
+  const ordersQuery = useOrdersQuery(true)
+  const ledger = ledgerQuery.data || []
+  const orders = ordersQuery.data || []
+  const status = ledgerQuery.isError || ordersQuery.isError ? "error" : "idle"
 
   const totals = useMemo(() => {
     return ledger.reduce(

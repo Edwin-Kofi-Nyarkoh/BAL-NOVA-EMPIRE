@@ -1,42 +1,15 @@
 // app/service-network/page.tsx
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
-
-type ProRow = {
-  id: string
-  userId: string
-  summary: string
-  teamCount: number
-  createdAt: string
-}
+import { useAdminProsQuery } from "@/lib/query"
 
 export default function ServiceNetworkPage() {
-  const [pros, setPros] = useState<ProRow[]>([])
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
-
-  useEffect(() => {
-    let active = true
-    async function load() {
-      setStatus("loading")
-      try {
-        const res = await fetch("/api/admin/pros")
-        const data = await res.json().catch(() => ({}))
-        if (!active) return
-        setPros(Array.isArray(data.pros) ? data.pros : [])
-        setStatus("idle")
-      } catch {
-        if (!active) return
-        setStatus("error")
-      }
-    }
-    load()
-    return () => {
-      active = false
-    }
-  }, [])
+  const prosQuery = useAdminProsQuery()
+  const pros = prosQuery.data || []
+  const status = prosQuery.isError ? "error" : "idle"
 
   const totalTeams = useMemo(() => pros.reduce((sum, p) => sum + p.teamCount, 0), [pros])
   const recent = pros.slice(0, 6)

@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bal Nova | Shop & Hire</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { navy: '#002D62', amber: '#FFBF00', blue: '#0A2342' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+        
+        .nav-link { position: relative; padding-bottom: 2px; }
+        .nav-link::after { content: ''; position: absolute; width: 0; height: 2px; bottom: 0; left: 0; background-color: #FFBF00; transition: width 0.3s; }
+        .nav-link:hover::after, .nav-active-desk::after { width: 100%; }
+        .nav-active-mobile { color: #FFBF00; }
+        
+        /* GENIE ANIMATION */
+        .genie-float { animation: float 3s ease-in-out infinite; box-shadow: 0 10px 25px -5px rgba(255, 191, 0, 0.4); }
+        @keyframes float { 
+            0% { transform: translateY(0px); } 
+            50% { transform: translateY(-10px); } 
+            100% { transform: translateY(0px); } 
+        }
+        
+        .chat-bubble { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; margin-bottom: 8px; position: relative; }
+        .chat-user { background: #002D62; color: white; border-bottom-right-radius: 2px; align-self: flex-end; margin-left: auto; }
+        .chat-ai { background: #f3f4f6; color: #1f2937; border-bottom-left-radius: 2px; align-self: flex-start; }
+        .dark .chat-ai { background: #374151; color: white; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
+
+    <div id="toastContainer" class="fixed top-5 left-1/2 -translate-x-1/2 z-[70] flex flex-col gap-2 pointer-events-none w-full max-w-sm"></div>
+
+    <header class="bg-brand-navy text-white shadow-md z-30 sticky top-0 flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+           <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('shop')">
+    <div class="w-8 h-8 bg-brand-amber rounded-full flex items-center justify-center text-brand-navy font-bold text-xs">BN</div>
+    <div class="flex flex-col">
+        <h1 class="font-bold text-xl tracking-tight leading-none">Bal Nova</h1>
+        <div class="text-[10px] text-gray-300">
+            Nova Credits: <span id="novaPointsDisplay" class="font-bold text-brand-amber">0</span>
+        </div>
+    </div>
+</div>
+           <nav class="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
+    <button onclick="switchTab('shop')" class="nav-link font-medium hover:text-brand-amber transition">Shop</button>
+    <button onclick="switchTab('service')" class="nav-link font-medium hover:text-brand-amber transition">Hire</button>
+    <button onclick="switchTab('orders')" class="nav-link font-medium hover:text-brand-amber transition">Orders</button>
+    <button onclick="switchTab('chats')" class="nav-link font-medium hover:text-brand-amber transition">Messages</button>
+</nav>
+            <button onclick="toggleShopRegion()" id="regionBtn" class="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold border border-gray-200 dark:border-gray-600 transition-all hover:bg-brand-amber hover:text-brand-navy hover:border-brand-amber active:scale-95">
+                <span class="text-base">🇬🇭</span> <span class="hidden md:inline">Ghana</span>
+            </button>
+            <div class="flex items-center gap-3 md:gap-4">
+                <button onclick="forceRefreshShop()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition" title="Refresh Products"><i class="fa-solid fa-sync"></i></button>
+                <button onclick="toggleTheme()" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition"><i class="fa-solid fa-moon"></i></button>
+                <button onclick="switchTab('profile')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition"><i class="fa-solid fa-user"></i></button>
+                <button onclick="switchTab('cart')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center relative hover:bg-white/20 transition">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span id="cartBadge" class="absolute -top-1 -right-1 bg-brand-amber text-brand-navy font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto pb-20 md:pb-0 scroll-smooth relative w-full" id="mainContainer">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div id="aiForYouContainer" class="hidden mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
+    <div class="flex items-center gap-2 mb-3">
+        <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+            <i class="fa-solid fa-wand-magic-sparkles text-white text-[10px] animate-pulse"></i>
+        </div>
+        <div>
+            <h3 class="font-bold text-base dark:text-white leading-none">Curated For You</h3>
+            <p class="text-[10px] text-gray-400">Based on your taste</p>
+        </div>
+    </div>
+    
+    <div id="aiForYouList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="col-span-full p-4 text-center text-xs text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 animate-pulse">
+            🔮 Analyzing your purchase history...
+        </div>
+    </div>
+</div>
+            <div id="view-shop" class="view-section">
+    <div class="md:hidden mb-4 flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl">
+        <button onclick="setMode('shop')" id="btn-mode-shop" class="flex-1 py-2 rounded-lg text-sm font-bold bg-white dark:bg-gray-700 shadow-sm transition-all text-brand-navy dark:text-brand-amber">Shop</button>
+        <button onclick="setMode('service')" id="btn-mode-service" class="flex-1 py-2 rounded-lg text-sm font-bold text-gray-500 transition-all">Hire</button>
+    </div>
+
+    <div id="shopHero" class="mb-6 hidden animate-fade-in">
+         <div class="h-40 rounded-2xl bg-gradient-to-r from-green-800 to-green-900 flex items-center p-6 text-white relative overflow-hidden shadow-lg border border-green-600">
+             <div class="relative z-10">
+                 <div class="text-[10px] font-bold bg-white text-green-800 px-2 py-1 rounded w-fit mb-2 uppercase tracking-wide">Global Connect</div>
+                 <h2 class="text-2xl font-black mb-1">Shop Nigeria 🇳🇬</h2>
+                 <p class="text-xs text-green-100 max-w-[200px]">Direct from Lagos vendors. 3-5 Day Air Cargo shipping applied.</p>
+             </div>
+             <i class="fa-solid fa-plane-departure absolute -right-2 -bottom-6 text-9xl text-white/10 -rotate-12"></i>
+         </div>
+    </div>
+
+    <div class="mb-6">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-lg dark:text-white" id="collectionTitle">🔥 Trending in Accra</h3>
+            <span class="text-xs text-brand-amber cursor-pointer hover:underline">View All</span>
+        </div>
+        <div class="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x" id="trendingSlider">
+            </div>
+    </div>
+
+    <h3 class="font-bold text-lg dark:text-white mb-3">All Products</h3>
+    <div id="productGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 pb-20"></div>
+</div>
+
+            <div id="view-service" class="view-section hidden">
+    <div class="flex gap-2 border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto pb-1 no-scrollbar">
+        <button onclick="toggleServiceView('panic')" id="tab-panic" class="whitespace-nowrap pb-2 px-3 border-b-2 border-red-500 font-bold text-red-500 animate-pulse">
+            <i class="fa-solid fa-triangle-exclamation mr-1"></i> Emergency
+        </button>
+        <button onclick="toggleServiceView('post')" id="tab-post" class="whitespace-nowrap pb-2 px-3 border-b-2 border-transparent text-gray-500 hover:text-brand-navy dark:hover:text-white transition">
+            Post Job
+        </button>
+        <button onclick="toggleServiceView('browse')" id="tab-browse" class="whitespace-nowrap pb-2 px-3 border-b-2 border-transparent text-gray-500 hover:text-brand-navy dark:hover:text-white transition">
+            Directory
+        </button>
+    </div>
+
+    <div id="service-panic-view">
+        <div class="bg-red-50 dark:bg-red-900/10 border-2 border-red-500 rounded-2xl p-6 text-center relative overflow-hidden">
+            <div class="absolute inset-0 bg-red-500/5 animate-pulse"></div>
+            
+            <h2 class="text-2xl font-black text-red-600 dark:text-red-500 mb-2 relative z-10">URGENT ASSISTANCE</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-6 relative z-10">
+                We broadcast your distress signal to the nearest <strong>Top-Rated Pros</strong>. 
+                <br><span class="text-xs opacity-75">(GHS 50 Urgency Fee applies)</span>
+            </p>
+
+            <div class="relative z-10 flex justify-center mb-6">
+                <button onclick="triggerPanicProtocol()" id="panicBtn" class="w-40 h-40 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-[0_0_40px_rgba(239,68,68,0.6)] flex flex-col items-center justify-center text-white transition-transform active:scale-95 hover:scale-105 border-4 border-red-400">
+                    <i class="fa-solid fa-bolt text-5xl mb-2"></i>
+                    <span class="font-bold text-lg">SUMMON</span>
+                </button>
+            </div>
+
+            <div class="relative z-10 grid grid-cols-3 gap-2 max-w-xs mx-auto">
+                <button onclick="selectPanicType('Plumber')" class="panic-cat p-2 border border-red-200 dark:border-red-900 rounded bg-white dark:bg-gray-800 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/50">Plumber</button>
+                <button onclick="selectPanicType('Electrician')" class="panic-cat p-2 border border-red-200 dark:border-red-900 rounded bg-white dark:bg-gray-800 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/50">Electrician</button>
+                <button onclick="selectPanicType('Locksmith')" class="panic-cat p-2 border border-red-200 dark:border-red-900 rounded bg-white dark:bg-gray-800 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/50">Locksmith</button>
+            </div>
+            <input type="hidden" id="selectedPanicType" value="">
+        </div>
+
+        <div id="panicRadar" class="mt-6 hidden">
+            <div class="flex items-center gap-3 text-sm font-bold text-brand-navy dark:text-white mb-2">
+                <i class="fa-solid fa-satellite-dish fa-spin"></i>
+                <span id="panicStatus">Scanning for Plumbers in East Legon...</span>
+            </div>
+            <div class="space-y-2" id="panicResults"></div>
+        </div>
+    </div>
+
+    <div id="service-post-view" class="hidden">
+        <div class="bg-gradient-to-r from-blue-600 to-brand-navy p-6 rounded-2xl shadow-lg mb-8 text-white relative overflow-hidden">
+            <div class="relative z-10">
+                <h2 class="text-2xl font-bold mb-2">Post a Standard Job</h2>
+                <p class="text-blue-100 mb-4 text-sm">Get quotes within 24 hours. Free to post.</p>
+                <button onclick="openServiceForm('General')" class="bg-white text-brand-navy px-6 py-2 rounded-full font-bold shadow hover:bg-gray-100 transition text-sm">Create Listing</button>
+            </div>
+            <i class="fa-solid fa-helmet-safety absolute -bottom-4 -right-4 text-9xl text-white/10 rotate-12"></i>
+        </div>
+    </div>
+
+    <div id="service-browse-view" class="hidden">
+        <h3 class="font-bold mb-4 text-xl dark:text-white">Verified Pros</h3>
+        <div id="proList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </div>
+</div>
+
+            <div id="view-orders" class="view-section hidden max-w-4xl mx-auto">
+                <h2 class="text-2xl font-bold mb-6 dark:text-white">My Orders</h2>
+                <div id="orderList" class="space-y-4"></div>
+            </div>
+
+            <div id="view-locations" class="view-section hidden max-w-4xl mx-auto animate-fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold dark:text-white">Saved Locations</h2>
+                    <button onclick="openAddAddressModal()" class="bg-brand-navy text-white px-4 py-2 rounded-lg font-bold text-sm shadow">
+                        <i class="fa-solid fa-plus"></i> New
+                    </button>
+                </div>
+                <div id="addressList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <div id="view-cart" class="view-section hidden max-w-2xl mx-auto">
+                <h2 class="text-2xl font-bold mb-6 dark:text-white">Shopping Cart</h2>
+                
+                <div id="cartItems" class="divide-y dark:divide-gray-700 mb-6"></div>
+                
+                <div class="flex gap-2 p-1 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4">
+                    <button onclick="setDeliveryMode('delivery')" id="btn-dlv-mode" class="flex-1 py-2 rounded-md text-xs font-bold bg-white dark:bg-gray-600 shadow-sm text-brand-navy dark:text-white transition-all">Delivery</button>
+                    <button onclick="setDeliveryMode('pickup')" id="btn-pkp-mode" class="flex-1 py-2 rounded-md text-xs font-bold text-gray-500 dark:text-gray-400 transition-all">Pickup</button>
+                </div>
+
+                <div class="mb-4" id="deliveryLocContainer">
+                    <div class="flex justify-between items-end mb-1">
+                        <label class="block text-xs font-bold text-gray-500">Delivery Location</label>
+                        <button onclick="loadSavedAddressesToCart()" class="text-[10px] text-brand-amber font-bold hover:underline">
+                            <i class="fa-solid fa-map-pin"></i> Select Saved
+                        </button>
+                    </div>
+                    
+                    <div id="cartAddressChips" class="flex gap-2 overflow-x-auto pb-2 mb-2 hidden"></div>
+
+                    <div class="relative">
+                        <input type="text" id="deliveryLoc" placeholder="e.g. East Legon, near Anc Mall" class="w-full p-3 rounded-lg border dark:bg-gray-900 dark:border-gray-600 dark:text-white pr-10" oninput="handleLocationInput(this.value)">
+                        <div id="locSpinner" class="absolute right-3 top-3 hidden text-brand-amber animate-spin">
+                            <i class="fa-solid fa-circle-notch"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1 italic" id="locStatus"></p>
+                </div>
+
+                <div class="border-t dark:border-gray-700 pt-4 mt-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-gray-500 text-sm">Delivery Fee</span>
+                        <span class="font-bold text-sm dark:text-white" id="feeBreakdown">GHS 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="font-bold text-xl dark:text-white">Total</span>
+                        <span class="font-bold text-xl text-brand-amber">GHS <span id="cartTotal">0.00</span></span>
+                    </div>
+                    
+                    <button onclick="analyzeCart()" class="w-full mb-3 py-3 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-300 rounded-xl font-bold text-sm border border-indigo-200 dark:border-indigo-800">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> AI Cart Analysis
+                    </button>
+
+                    <button onclick="checkout()" id="checkoutBtn" class="w-full bg-brand-navy text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-brand-blue transition disabled:opacity-50 disabled:cursor-not-allowed">Checkout</button>
+                </div>
+            </div>
+
+            <div id="view-profile" class="view-section hidden max-w-lg mx-auto">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 text-center mb-6">
+                    <div class="w-20 h-20 bg-brand-navy text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-3">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div class="space-y-4 text-left">
+    <div>
+        <label class="text-xs font-bold text-gray-500 block mb-1">My Name</label>
+        <input type="text" id="custNameInput" class="w-full p-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+    </div>
+    <div>
+        <label class="text-xs font-bold text-gray-500 block mb-1">Phone Number (ID)</label>
+        <input type="tel" id="custPhoneInput" placeholder="+233..." class="w-full p-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 dark:text-white font-mono">
+        <p class="text-[9px] text-gray-400 mt-1">Used for verified delivery locations.</p>
+    </div>
+    <button onclick="saveProfile()" class="w-full bg-brand-navy text-white py-3 rounded-xl font-bold shadow-md hover:bg-brand-blue transition">Save Profile</button>
+
+    <div class="pt-4 border-t dark:border-gray-700">
+        <label class="text-xs font-bold text-gray-500">Gemini API Key</label>
+                 </div>
+            </div>
+                </div>
+                <button onclick="resetSimulation()" class="w-full py-3 bg-red-100 text-red-600 border border-red-200 rounded-xl font-bold hover:bg-red-200 transition">
+                    <i class="fa-solid fa-trash-can mr-2"></i> Reset Simulation Data
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <nav class="md:hidden fixed bottom-0 ...">
+    <button onclick="switchTab('shop')" id="m-nav-shop" ...>...</button>
+    <button onclick="switchTab('locations')" id="m-nav-locations" class="flex flex-col items-center text-gray-400">
+        <i class="fa-solid fa-map-location-dot text-xl mb-1"></i>
+        <span class="text-[10px] font-bold">Places</span>
+    </button>
+    </nav>
+
+    <button onclick="openGenie()" class="fixed bottom-24 right-6 z-50 w-14 h-14 bg-brand-amber text-brand-navy rounded-full shadow-2xl flex items-center justify-center genie-float group">
+        <i class="fa-solid fa-wand-magic-sparkles text-2xl group-hover:scale-110 transition"></i>
+    </button>
+
+    <!-- SUCCESS MODAL FOR CHARTER -->
+    <div id="charterSuccessModal" class="fixed inset-0 z-[120] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl text-center border-t-4 border-purple-600">
+            <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                <i class="fa-solid fa-phone-volume animate-pulse"></i>
+            </div>
+            <h3 class="text-xl font-bold dark:text-white mb-2">Request Received</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+                Our Operations Manager will call you in <strong class="text-purple-600 dark:text-purple-400">5 minutes</strong> with a custom quote based on your load details.
+            </p>
+            <button onclick="document.getElementById('charterSuccessModal').classList.add('hidden')" class="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700">Okay, I'll wait</button>
+        </div>
+    </div>
+
+    <!-- CONFIRM MODAL (Inserted to replace native confirm) -->
+    <div id="confirmModal" class="fixed inset-0 z-[110] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-6 w-full max-w-sm border-t-4 border-brand-amber">
+            <h3 class="font-bold text-lg dark:text-white mb-2">Confirmation Required</h3>
+            <p id="confirmMessage" class="text-sm text-gray-600 dark:text-gray-300 mb-6"></p>
+            <div class="flex gap-2">
+                <button id="confirmCancelBtn" class="flex-1 py-3 bg-gray-100 dark:bg-gray-700 rounded font-bold dark:text-white">Cancel</button>
+                <button id="confirmYesBtn" class="flex-1 py-3 bg-brand-navy text-white rounded font-bold">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="serviceModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg dark:text-white" id="svcModalTitle">Request Service</h3><button onclick="document.getElementById('serviceModal').classList.add('hidden')"><i class="fa-solid fa-xmark text-gray-400 text-xl"></i></button></div>
+            <form id="svcForm" onsubmit="submitServiceRequest(event)">
+                <input type="hidden" id="directHireId">
+                <input type="hidden" id="directHireName">
+                <div class="mb-4 relative">
+                    <label class="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Job Description</label>
+                    <textarea id="svcDesc" required class="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white pb-10" rows="3" placeholder="Describe your issue..."></textarea>
+                    <button type="button" onclick="polishServiceDescription()" class="absolute right-2 bottom-2 text-[10px] bg-brand-amber/20 text-brand-amber border border-brand-amber/50 px-2 py-1 rounded font-bold hover:bg-brand-amber hover:text-brand-navy transition flex items-center gap-1">
+                        <i class="fa-solid fa-sparkles"></i> AI Polish
+                    </button>
+                </div>
+                <div class="mb-4"><label class="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Location</label><input type="text" id="svcLoc" required class="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"></div>
+                <button type="submit" class="w-full bg-brand-navy text-white py-3 rounded-xl font-bold shadow-md hover:bg-brand-blue" id="svcSubmitBtn">Post Job</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="chatModal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-lg h-[90vh] sm:h-[700px] sm:rounded-2xl rounded-t-2xl flex flex-col shadow-2xl overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <div><h3 class="font-bold dark:text-white" id="chatHeaderName">Pro Chat</h3><p class="text-xs text-green-500 font-bold">● Online</p></div>
+                <button onclick="closeChat()" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            </div>
+            <div id="proChatMessages" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-100 dark:bg-gray-900"></div>
+            <div class="p-4 bg-white dark:bg-gray-800 flex gap-2">
+                <input type="text" id="proChatInput" placeholder="Type message..." class="flex-1 p-3 rounded-lg border dark:bg-gray-700 dark:border-gray-600 dark:text-white" onkeypress="if(event.key==='Enter') sendProMsg()">
+                <button onclick="sendProMsg()" class="bg-brand-navy text-white px-4 rounded-lg"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="productModal" class="fixed inset-0 z-[80] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl relative flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-start mb-4">
+                 <button onclick="document.getElementById('productModal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 z-10"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            </div>
+            <div class="overflow-y-auto flex-1 scroll-smooth">
+                <div class="h-64 bg-gray-100 dark:bg-gray-800 rounded-xl mb-4 overflow-hidden relative group shrink-0">
+                    <img id="pmImg" src="" class="w-full h-full object-cover">
+                    <button onclick="prevImage()" id="btnPrevImg" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/70 transition hidden"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button onclick="nextImage()" id="btnNextImg" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/70 transition hidden"><i class="fa-solid fa-chevron-right"></i></button>
+                    <div id="imgCounter" class="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full hidden">1/1</div>
+                </div>
+                <h2 id="pmName" class="text-2xl font-bold dark:text-white mb-1"></h2>
+                <div class="flex justify-between items-center mb-4">
+                    <span id="pmPrice" class="text-xl font-bold text-brand-amber"></span>
+                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">In Stock</span>
+                </div>
+                <div id="pmVariantsArea" class="mb-4 hidden">
+                    <label class="text-xs font-bold text-gray-500 uppercase block mb-2">Options</label>
+                    <div id="pmVariants" class="flex flex-wrap gap-2"></div>
+                </div>
+                <p id="pmDesc" class="text-gray-500 text-sm mb-6 leading-relaxed dark:text-gray-400"></p>
+                <div class="border-t dark:border-gray-700 pt-4 mt-4">
+                    <h4 class="text-sm font-bold dark:text-white mb-2">You Might Also Like</h4>
+                    <div id="pmRecommendations" class="flex gap-3 overflow-x-auto pb-2"></div>
+                </div>
+            </div>
+            <div class="flex gap-3 pt-4 mt-auto border-t dark:border-gray-700">
+                <div class="flex items-center border dark:border-gray-600 rounded-lg">
+                    <button onclick="changeQty(-1)" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white">-</button>
+                    <input id="pmQty" type="number" value="1" min="1" class="w-12 text-center border-none focus:ring-0 dark:bg-transparent dark:text-white" readonly>
+                    <button onclick="changeQty(1)" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white">+</button>
+                </div>
+                <button id="pmAddToCart" class="flex-1 bg-brand-navy text-white py-3 rounded-xl font-bold shadow-lg hover:bg-brand-blue transition">Add to Cart</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="genieModal" class="fixed inset-0 z-[100] hidden bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-lg h-[80vh] sm:h-[600px] sm:rounded-2xl rounded-t-2xl flex flex-col shadow-2xl overflow-hidden">
+            <div class="bg-brand-navy p-4 flex justify-between items-center text-white">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-brand-amber"></i>
+                    <h3 class="font-bold">Nova Assistant</h3>
+                </div>
+                <button onclick="document.getElementById('genieModal').classList.add('hidden')"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="genieMessages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-800/50">
+                <div class="chat-bubble chat-ai">Hello! I'm Nova. I can find products and add them to your cart. Try "I want 2 sneakers"! 🧞‍♂️</div>
+            </div>
+            <div class="p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col gap-2">
+                <div class="flex gap-2">
+                    <input type="text" id="genieInput" placeholder="Ask Nova..." class="flex-1 p-3 rounded-lg border dark:bg-gray-800 dark:border-gray-600 dark:text-white outline-none focus:border-brand-amber" onkeypress="if(event.key==='Enter') sendGenie()">
+                    <button onclick="sendGenie()" class="bg-brand-amber text-brand-navy px-4 rounded-lg font-bold"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+                <button onclick="startVoiceRecognition()" class="text-xs text-gray-400 flex items-center justify-center gap-1 hover:text-brand-amber transition">
+                    <i class="fa-solid fa-microphone"></i> Click to speak
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="momoModal" class="fixed inset-0 z-[90] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl p-6 shadow-2xl relative">
+            <h3 class="text-xl font-bold mb-4 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-mobile-screen-button text-brand-amber"></i> Mobile Money
+            </h3>
+            <div class="space-y-4" id="momoForm">
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Network</label>
+                    <div class="grid grid-cols-3 gap-2 mt-1">
+                        <button onclick="selNet(this)" class="net-btn border-2 border-yellow-400 bg-yellow-50 p-2 rounded-lg font-bold text-xs text-yellow-800">MTN</button>
+                        <button onclick="selNet(this)" class="net-btn border border-gray-200 p-2 rounded-lg font-bold text-xs dark:text-white">Telecel</button>
+                        <button onclick="selNet(this)" class="net-btn border border-gray-200 p-2 rounded-lg font-bold text-xs dark:text-white">AT</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Phone Number</label>
+                    <input type="tel" placeholder="055 555 5555" class="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white font-mono text-lg">
+                </div>
+                <div class="flex justify-between items-center py-2 border-t dark:border-gray-700">
+                    <span class="text-sm text-gray-500">Amount to Pay</span>
+                    <span class="text-xl font-bold dark:text-white">GHS <span id="momoAmount">0.00</span></span>
+                </div>
+                <button onclick="processPayment()" class="w-full bg-brand-navy text-white py-3 rounded-xl font-bold text-lg shadow-lg">Confirm Payment</button>
+            </div>
+            <div id="momoSuccess" class="hidden text-center py-4">
+                <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl animate-bounce"><i class="fa-solid fa-check"></i></div>
+                <h3 class="text-lg font-bold text-green-600 mb-1">Payment Successful!</h3>
+                <p class="text-xs text-gray-500 mb-6">Your order is being processed.</p>
+                <button onclick="closeMomo()" class="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-bold">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="aiResultModal" class="fixed inset-0 z-[90] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+                <h3 class="font-bold text-lg dark:text-white flex items-center gap-2"><i class="fa-solid fa-brain text-brand-amber"></i> AI Intelligence</h3>
+                <button onclick="document.getElementById('aiResultModal').classList.add('hidden')" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="aiResultContent" class="flex-1 overflow-y-auto prose prose-sm dark:prose-invert max-w-none mb-4"></div>
+            <button onclick="document.getElementById('aiResultModal').classList.add('hidden')" class="w-full bg-gray-100 dark:bg-gray-700 dark:text-white py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition">Close</button>
+        </div>
+    </div>
+
+    <div id="inputModal" class="fixed inset-0 z-[130] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+            <h3 id="inputTitle" class="font-bold text-lg dark:text-white mb-4">Enter Details</h3>
+            <input type="text" id="inputField" class="w-full p-3 border rounded-lg mb-4 dark:bg-gray-800 dark:border-gray-700 dark:text-white" autofocus>
+            <div class="flex gap-2">
+                <button id="inputCancelBtn" class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded font-bold dark:text-white">Cancel</button>
+                <button id="inputYesBtn" class="flex-1 py-2 bg-brand-navy text-white rounded font-bold">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // APP CONFIGURATION
+        const APP_CONFIG = {
+            enable_van_charter: false // Toggle to TRUE when vans are acquired
+        };
+
+        // GLOBAL STATE
+        let products = JSON.parse(localStorage.getItem('balnova_inventory')) || [];
+        let myOrders = JSON.parse(localStorage.getItem('balnova_my_orders')) || [];
+        let cart = [];
+        let currentSelectedAddressId = null;
+        let myChats = JSON.parse(localStorage.getItem('balnova_my_chats')) || []; 
+        let universalChats = JSON.parse(localStorage.getItem('balnova_universal_chats')) || [];
+        let proDirectory = JSON.parse(localStorage.getItem('balnova_pro_directory')) || [];
+        let currentChatId = null;
+        let customerProfile = JSON.parse(localStorage.getItem('balnova_customer_profile')) || { name: 'Lucian' }; 
+        
+        // Delivery Logic Variables
+        let currentDeliveryFee = 0; 
+        let deliveryMode = 'delivery'; 
+        let locationDebounceTimer;
+        let isCalculatingFee = false;
+        
+        let apiKey = localStorage.getItem('gemini_api_key') || "";
+        let currentProductImages = [];
+        let currentImageIdx = 0;
+        let genieContext = []; 
+
+        // --- CONFIRM MODAL HELPER (Inserted to replace native confirm) ---
+        function showConfirmModal(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const msg = document.getElementById('confirmMessage');
+                const yes = document.getElementById('confirmYesBtn');
+                const no = document.getElementById('confirmCancelBtn');
+                
+                msg.innerText = message;
+                modal.classList.remove('hidden');
+                
+                const close = (result) => {
+                    modal.classList.add('hidden');
+                    yes.onclick = null;
+                    no.onclick = null;
+                    resolve(result);
+                };
+                
+                yes.onclick = () => close(true);
+                no.onclick = () => close(false);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Feature Flag Check
+            if (!APP_CONFIG.enable_van_charter) {
+                const charterTab = document.getElementById('tab-charter');
+                if(charterTab) charterTab.classList.add('hidden');
+            }
+            const availableRegions = getAvailableRegions();
+            if (availableRegions.length > 0) {
+                // Force button update to show correct flag
+                const btn = document.getElementById('regionBtn');
+                const currentR = availableRegions.find(r => r.id === shopRegion) || availableRegions[0];
+                if(btn) btn.innerHTML = `<span class="text-base">${currentR.flag}</span> <span class="hidden md:inline">${currentR.name}</span>`;
+            }
+
+            renderShop();
+            renderOrders();
+            renderProDirectory();
+            updateCartUI(); 
+            
+            setInterval(syncStatus, 2000); 
+            setInterval(syncUniversalChats, 2000); 
+            setInterval(syncInventory, 3000);
+            // Init Profile
+            document.getElementById('custNameInput').value = customerProfile.name || "";
+            document.getElementById('custPhoneInput').value = customerProfile.phone || ""; // Load Phone 
+            
+            // Init Profile
+            document.getElementById('custNameInput').value = customerProfile.name;
+            if(localStorage.getItem('cust_theme')==='dark') document.documentElement.classList.add('dark');
+            if(apiKey) document.getElementById('apiKeyInput').value = apiKey;
+        });
+
+        // --- DELIVERY FEE LOGIC ---
+        function setDeliveryMode(mode) {
+            deliveryMode = mode;
+            const delBtn = document.getElementById('btn-dlv-mode');
+            const pkpBtn = document.getElementById('btn-pkp-mode');
+            const locInput = document.getElementById('deliveryLocContainer');
+            
+            if(mode === 'delivery') {
+                delBtn.className = "flex-1 py-2 rounded-md text-xs font-bold bg-white dark:bg-gray-600 shadow-sm text-brand-navy dark:text-white transition-all";
+                pkpBtn.className = "flex-1 py-2 rounded-md text-xs font-bold text-gray-500 dark:text-gray-400 transition-all";
+                locInput.classList.remove('hidden');
+                const val = document.getElementById('deliveryLoc').value;
+                if(val) handleLocationInput(val);
+                else { currentDeliveryFee = 0; isCalculatingFee = false; updateCartUI(); }
+            } else {
+                pkpBtn.className = "flex-1 py-2 rounded-md text-xs font-bold bg-white dark:bg-gray-600 shadow-sm text-brand-navy dark:text-white transition-all";
+                delBtn.className = "flex-1 py-2 rounded-md text-xs font-bold text-gray-500 dark:text-gray-400 transition-all";
+                locInput.classList.add('hidden');
+                currentDeliveryFee = 0; isCalculatingFee = false; updateCartUI();
+            }
+        }
+
+        // --- AI PERSONAL SHOPPER ---
+async function initAiRecommendations() {
+    // 1. Get Purchase History
+    const orders = JSON.parse(localStorage.getItem('balnova_my_orders')) || [];
+    const container = document.getElementById('aiForYouContainer');
+    
+    // Logic: Only show if user has history, otherwise it's just random guessing
+    if (orders.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    
+    container.classList.remove('hidden');
+
+    // 2. Prepare Context for Gemini
+    // We send: "User bought X" and "Inventory is Y"
+    const historyContext = orders.slice(0, 3).map(o => o.item).join(', '); // Last 3 items
+    const inventoryContext = products.map(p => `ID:${p.id}, Name:${p.name}, Price:${p.price}`).join(' | ');
+
+    // 3. The Prompt
+    const prompt = `
+        ACT AS A SHOPPING AI. 
+        User History: [${historyContext}]. 
+        Live Inventory: [${inventoryContext}].
+        
+        TASK: Pick exactly 2 products from Inventory that complement the User History.
+        
+        CRITICAL: Return ONLY a raw JSON array of objects with 'id' and 'reason'. 
+        Example format: [{"id": 101, "reason": "Goes well with your shoes"}, {"id": 102, "reason": "Trending match"}]
+        DO NOT include markdown formatting.
+    `;
+
+    // 4. Fetch Prediction
+    // We use a flag to prevent spamming the API on every reload if we wanted, 
+    // but for this demo we call it live.
+    const res = await callGemini(prompt, true); // Raw text response
+    
+    if (!res) return;
+
+    try {
+        // Clean up response in case AI added markdown ```json ... ```
+        const cleanJson = res.replace(/```json/g, '').replace(/```/g, '').trim();
+        const recommendations = JSON.parse(cleanJson);
+        
+        // 5. Render Results
+        const list = document.getElementById('aiForYouList');
+        list.innerHTML = '';
+
+        recommendations.forEach(rec => {
+            const p = products.find(x => x.id === rec.id);
+            if (p) {
+                const img = p.images?.[0] || 'https://via.placeholder.com/150';
+                list.innerHTML += `
+                    <div onclick="openProductDetails(${p.id})" class="flex gap-3 p-2 bg-white dark:bg-gray-800 rounded-xl border border-indigo-100 dark:border-indigo-900/50 shadow-sm cursor-pointer hover:border-indigo-300 transition-all group">
+                        <div class="h-16 w-16 shrink-0 overflow-hidden rounded-lg relative">
+                            <img src="${img}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                        </div>
+                        <div class="flex-1 min-w-0 flex flex-col justify-center">
+                            <div class="text-[10px] font-bold text-indigo-500 mb-0.5 uppercase tracking-wide">
+                                <i class="fa-solid fa-wand-sparkles"></i> ${rec.reason}
+                            </div>
+                            <div class="font-bold text-sm dark:text-white truncate">${p.name}</div>
+                            <div class="text-xs text-gray-500">GHS ${p.price}</div>
+                        </div>
+                        <div class="flex items-center pr-2 text-indigo-400">
+                            <i class="fa-solid fa-chevron-right text-xs"></i>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+    } catch (e) {
+        console.error("AI Parsing Failed", e);
+        container.classList.add('hidden'); // Hide if AI fails
+    }
+}
+        
+        function handleLocationInput(val) {
+            clearTimeout(locationDebounceTimer);
+            const statusEl = document.getElementById('locStatus');
+            statusEl.innerText = "";
+            
+            if(!val || val.length < 3) { currentDeliveryFee = 0; isCalculatingFee = false; updateCartUI(); return; }
+            
+            const loc = val.toLowerCase();
+            let matched = false;
+            let baseFee = 25; 
+            
+            if (loc.includes('spintex') || loc.includes('teshie') || loc.includes('nungua') || loc.includes('sakumono')) { baseFee = 15; matched = true; } 
+            else if (loc.includes('kasoa') || loc.includes('weija') || loc.includes('dodowa') || loc.includes('pokuase')) { baseFee = 45; matched = true; } 
+            else if (loc.includes('east legon') || loc.includes('osu') || loc.includes('cantonments')) { baseFee = 25; matched = true; }
+            
+            if(matched) { applyFee(baseFee); return; }
+            
+            isCalculatingFee = true; updateCartUI(); 
+            statusEl.innerText = "Analyzing location...";
+            locationDebounceTimer = setTimeout(() => { detectZoneWithAI(val); }, 1500);
+        }
+
+        async function detectZoneWithAI(loc) {
+            if(!loc) return;
+            if(!apiKey) { applyFee(25); document.getElementById('locStatus').innerText = "AI Offline. Standard Rate applied."; return; }
+            apiKey = localStorage.getItem('gemini_api_key');
+            const prompt = `Classify location "${loc}" distance from Spintex, Ghana. Zones: A (<5km), B (5-15km), C (15-25km), D (25km+). Return ONLY one letter: A, B, C, or D.`;
+            try {
+                const res = await callGemini(prompt, true); 
+                if(!res) throw new Error("No response");
+                const zone = res.trim().toUpperCase().charAt(0);
+                let baseFee = 25;
+                if(zone === 'A') baseFee = 15; else if(zone === 'B') baseFee = 25; else if(zone === 'C') baseFee = 45; else if(zone === 'D') baseFee = 60;
+                applyFee(baseFee); document.getElementById('locStatus').innerText = `Zone ${zone} Detected via AI`;
+            } catch(e) { applyFee(25); document.getElementById('locStatus').innerText = "Manual estimate applied."; }
+        }
+        
+        function applyFee(baseFee) {
+             const hasBulky = cart.some(item => (item.volume || 0) >= 30);
+             currentDeliveryFee = baseFee + (hasBulky ? 20 : 0);
+             isCalculatingFee = false; updateCartUI();
+        }
+
+        function updateCartUI() {
+            const list = document.getElementById('cartItems'); list.innerHTML = '';
+            let total = 0, count = 0;
+            cart.forEach((p, idx) => {
+                total += p.price * p.qty; count += p.qty;
+                const img = p.images?p.images[0]:'';
+                list.innerHTML += `
+                <div class="flex gap-3 py-3">
+                    <img src="${img}" class="w-12 h-12 rounded object-cover">
+                    <div class="flex-1">
+                        <div class="text-sm font-bold dark:text-white">${p.name}</div>
+                        <div class="text-xs text-gray-500">GHS ${p.price} x ${p.qty}</div>
+                    </div>
+                    <button onclick="removeFromCart(${idx})" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
+                </div>`;
+            });
+            
+            const finalTotal = total + currentDeliveryFee;
+            document.getElementById('cartTotal').innerText = finalTotal.toFixed(2);
+            
+            const btn = document.getElementById('checkoutBtn');
+            const feeText = document.getElementById('feeBreakdown');
+            const spinner = document.getElementById('locSpinner');
+            
+            if (deliveryMode === 'delivery') {
+                if (isCalculatingFee) {
+                    btn.disabled = true; btn.innerText = "Calculating Fee..."; btn.classList.add('opacity-50', 'cursor-not-allowed'); feeText.innerText = "Thinking..."; if(spinner) spinner.classList.remove('hidden');
+                } else if (currentDeliveryFee === 0) {
+                    btn.disabled = true; btn.innerText = "Enter Delivery Location"; btn.classList.add('opacity-50', 'cursor-not-allowed'); feeText.innerText = "Delivery fee pending..."; if(spinner) spinner.classList.add('hidden');
+                } else {
+                    btn.disabled = false; btn.innerText = `Checkout (GHS ${finalTotal.toFixed(2)})`; btn.classList.remove('opacity-50', 'cursor-not-allowed'); feeText.innerText = `Includes GHS ${currentDeliveryFee.toFixed(2)} Delivery`; if(spinner) spinner.classList.add('hidden');
+                }
+            } else {
+                btn.disabled = false; btn.innerText = `Checkout (GHS ${finalTotal.toFixed(2)})`; btn.classList.remove('opacity-50', 'cursor-not-allowed'); feeText.innerText = "Self Pickup (Free)"; if(spinner) spinner.classList.add('hidden');
+            }
+            
+            if(cart.length === 0) { btn.disabled = true; btn.innerText = "Cart Empty"; btn.classList.add('opacity-50', 'cursor-not-allowed'); }
+            
+            document.getElementById('cartBadge').innerText = count;
+            document.getElementById('cartBadge').classList.remove('hidden');
+        }
+
+        // --- CORE FUNCTIONS ---
+        function switchTab(tab) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            if(tab === 'shop' || tab === 'service') { document.getElementById('view-shop').classList.remove('hidden'); setMode(tab); } 
+            else { document.getElementById(`view-${tab}`).classList.remove('hidden'); }
+            
+            document.querySelectorAll('nav button, header button').forEach(b => b.classList.remove('text-brand-navy', 'nav-active-mobile', 'text-white'));
+            const mBtn = document.getElementById(`m-nav-${tab}`);
+            if(mBtn) mBtn.classList.add('text-brand-navy', 'nav-active-mobile');
+        }
+
+        function setMode(mode) {
+            if(mode === 'shop') {
+                document.getElementById('productGrid').classList.remove('hidden');
+                document.getElementById('view-service').classList.add('hidden');
+                document.getElementById('btn-mode-shop').className = "flex-1 py-2 rounded-lg text-sm font-bold bg-white dark:bg-gray-700 shadow-sm transition-all text-brand-navy dark:text-brand-amber";
+                document.getElementById('btn-mode-service').className = "flex-1 py-2 rounded-lg text-sm font-bold text-gray-500 transition-all";
+            } else {
+                document.getElementById('productGrid').classList.add('hidden');
+                document.getElementById('view-service').classList.remove('hidden');
+                document.getElementById('btn-mode-shop').className = "flex-1 py-2 rounded-lg text-sm font-bold text-gray-500 transition-all";
+                document.getElementById('btn-mode-service').className = "flex-1 py-2 rounded-lg text-sm font-bold bg-white dark:bg-gray-700 shadow-sm transition-all text-brand-navy dark:text-brand-amber";
+                
+                // Feature Flag Logic for Default Tab
+                if (APP_CONFIG.enable_van_charter) {
+                    toggleServiceView('charter');
+                } else {
+                    toggleServiceView('post');
+                }
+            }
+        }
+
+        function toggleServiceView(view) {
+            document.getElementById('tab-post').classList.replace('border-brand-amber', 'border-transparent');
+            document.getElementById('tab-browse').classList.replace('border-brand-amber', 'border-transparent');
+            document.getElementById('tab-charter').classList.replace('border-brand-amber', 'border-transparent');
+            
+            document.getElementById('service-post-view').classList.add('hidden');
+            document.getElementById('service-browse-view').classList.add('hidden');
+            document.getElementById('service-charter-view').classList.add('hidden');
+
+            if(view === 'post') {
+                document.getElementById('service-post-view').classList.remove('hidden');
+                document.getElementById('tab-post').classList.replace('border-transparent', 'border-brand-amber');
+            } else if (view === 'browse') {
+                document.getElementById('service-browse-view').classList.remove('hidden');
+                document.getElementById('tab-browse').classList.replace('border-transparent', 'border-brand-amber');
+                renderProDirectory();
+            } else if (view === 'charter') {
+                document.getElementById('service-charter-view').classList.remove('hidden');
+                document.getElementById('tab-charter').classList.replace('border-transparent', 'border-brand-amber');
+            }
+        }
+
+        // --- CHARTER LOGIC ---
+        function submitCharterRequest(e) {
+            e.preventDefault();
+            // Just simulate the success.
+            // In a real app, this would write to a DB for the Admin Dashboard to read.
+            document.getElementById('charterSuccessModal').classList.remove('hidden');
+            
+            // Clear Form
+            document.getElementById('charterPickup').value = "";
+            document.getElementById('charterDrop').value = "";
+            document.getElementById('charterDesc').value = "";
+            document.getElementById('charterTime').value = "";
+        }
+
+        // --- PRO DIRECTORY ---
+        function renderProDirectory() {
+            if(proDirectory.length === 0) {
+                proDirectory = [
+                    { id: 'PRO-1', name: "Kojo Plumber", trade: "Plumbing", bio: "Expert in leak detection.", stars: 4.8 },
+                    { id: 'PRO-2', name: "Ama Electric", trade: "Electrician", bio: "Certified wiring expert.", stars: 5.0 }
+                ];
+                localStorage.setItem('balnova_pro_directory', JSON.stringify(proDirectory));
+            }
+            const list = document.getElementById('proList'); list.innerHTML = '';
+            proDirectory.forEach(p => {
+                list.innerHTML += `
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
+                        <div class="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center font-bold text-gray-500">${p.name.charAt(0)}</div>
+                        <div class="flex-1">
+                            <h4 class="font-bold dark:text-white">${p.name}</h4>
+                            <p class="text-xs text-brand-amber font-bold">${p.trade} <span class="text-gray-400 font-normal">• ${p.stars} ★</span></p>
+                        </div>
+                        <button onclick="openDirectHire('${p.id}', '${p.name}')" class="bg-brand-navy text-white text-xs px-3 py-2 rounded-lg font-bold">Hire</button>
+                    </div>`;
+            });
+        }
+        // --- GLOBAL SHOP STATE ---
+let shopRegion = 'GH'; 
+function getAvailableRegions() {
+    const defaultRegion = { id: 'GH', name: 'Ghana', flag: '🇬🇭' };
+    const customRegions = JSON.parse(localStorage.getItem('balnova_custom_regions')) || {};
+    return [defaultRegion, ...Object.values(customRegions)];
+}
+
+// 1. TOGGLE REGION LOGIC
+// --- UPDATED REGION LOGIC (Merged v3.3) ---
+function toggleShopRegion() {
+    const regions = getAvailableRegions();
+    
+    // Cycle through available regions
+    let currentIdx = regions.findIndex(r => r.id === shopRegion);
+    if (currentIdx === -1) currentIdx = 0;
+    
+    const nextIdx = (currentIdx + 1) % regions.length;
+    const nextRegion = regions[nextIdx];
+    
+    // Update State
+    shopRegion = nextRegion.id;
+    
+    // Update UI
+    const btn = document.getElementById('regionBtn');
+    const hero = document.getElementById('shopHero');
+    const title = document.getElementById('collectionTitle');
+    
+    // Button Text
+    btn.innerHTML = `<span class="text-base">${nextRegion.flag}</span> <span class="hidden md:inline">${nextRegion.name}</span>`;
+    
+    // Dynamic Styling
+    if (shopRegion === 'GH') {
+        btn.className = "flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold border border-gray-200 dark:border-gray-600 transition-all hover:bg-brand-amber hover:text-brand-navy";
+        hero.classList.add('hidden');
+        title.innerText = "🔥 Trending in Accra";
+    } else {
+        btn.className = "flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-800 border border-green-300 rounded-full text-xs font-bold transition-all shadow-glow";
+        hero.classList.remove('hidden');
+        hero.innerHTML = `
+             <div class="h-40 rounded-2xl bg-gradient-to-r from-brand-navy to-brand-blue flex items-center p-6 text-white relative overflow-hidden shadow-lg border border-white/10">
+                 <div class="relative z-10">
+                     <div class="text-[10px] font-bold bg-white text-brand-navy px-2 py-1 rounded w-fit mb-2 uppercase tracking-wide">Global Connect</div>
+                     <h2 class="text-2xl font-black mb-1">Shop ${nextRegion.name} ${nextRegion.flag}</h2>
+                     <p class="text-xs text-blue-100 max-w-[200px]">Direct from ${nextRegion.id} vendors. International shipping rates apply.</p>
+                 </div>
+                 <i class="fa-solid fa-earth-africa absolute -right-2 -bottom-6 text-9xl text-white/10 -rotate-12"></i>
+             </div>`;
+        title.innerText = `📦 ${nextRegion.name} Marketplace`;
+    }
+    
+    // MODIFICATION: Cart clearing logic REMOVED. 
+    // The cart now persists across borders.
+    if (cart.length > 0) {
+        showToast(`Switched to ${nextRegion.name}. Your cart items are safe.`, "success");
+    }
+
+    renderShop(); 
+}
+
+function renderShop() {
+    const grid = document.getElementById('productGrid');
+    const slider = document.getElementById('trendingSlider');
+    
+    grid.innerHTML = '';
+    slider.innerHTML = '';
+
+    // 1. Load Real Inventory (Ignore local cache, fetch fresh)
+    const allProducts = JSON.parse(localStorage.getItem('balnova_inventory')) || [];
+    
+    // 2. Filter by Active Region
+    const regionProducts = allProducts.filter(p => {
+        const pOrigin = p.originRegion || 'GH';
+        return pOrigin === shopRegion;
+    });
+
+    if (regionProducts.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full text-center py-20 flex flex-col items-center justify-center">
+                <div class="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4 text-3xl"><i class="fa-solid fa-box-open text-gray-400"></i></div>
+                <h3 class="font-bold text-gray-500 dark:text-gray-400">Marketplace Empty</h3>
+                <p class="text-xs text-gray-400 mt-1 max-w-xs">No vendors active in ${shopRegion} yet.</p>
+            </div>`;
+        return;
+    }
+
+    // 3. Render Slider (Top 3)
+    regionProducts.slice(0, 3).forEach(p => {
+        slider.innerHTML += `
+            <div onclick="openProductDetails(${p.id})" class="min-w-[140px] snap-center bg-white dark:bg-gray-800 rounded-xl p-2 border border-gray-100 dark:border-gray-700 shadow-sm cursor-pointer hover:scale-95 transition-transform">
+                <img src="${p.images ? p.images[0] : ''}" class="w-full h-24 object-cover rounded-lg mb-2 bg-gray-100">
+                <div class="text-xs font-bold truncate dark:text-white">${p.name}</div>
+                <div class="text-[10px] text-brand-amber font-bold">GHS ${p.price}</div>
+            </div>`;
+    });
+
+    // 4. Render Grid
+    regionProducts.forEach(p => {
+        const img = (p.images && p.images[0]) ? p.images[0] : 'https://via.placeholder.com/300';
+        let badge = (shopRegion !== 'GH') 
+            ? `<span class="absolute top-2 left-2 bg-green-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow">🌍 IMPORT</span>`
+            : `<span class="absolute top-2 left-2 bg-brand-amber text-brand-navy text-[9px] font-bold px-2 py-0.5 rounded shadow">SAME DAY</span>`;
+
+        grid.innerHTML += `
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden group relative">
+                ${badge}
+                <div onclick="openProductDetails(${p.id})" class="h-40 bg-gray-50 dark:bg-gray-900 relative cursor-pointer">
+                    <img src="${img}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                </div>
+                <div class="p-3">
+                    <h3 onclick="openProductDetails(${p.id})" class="font-bold text-sm truncate dark:text-white cursor-pointer hover:text-brand-amber transition">${p.name}</h3>
+                    <div class="text-brand-amber font-bold text-sm mt-1">GHS ${p.price}</div>
+                    <button onclick="addToCart(${p.id}, 1)" class="w-full mt-2 bg-brand-navy/10 text-brand-navy dark:text-white dark:bg-white/10 py-1.5 rounded text-xs font-bold hover:bg-brand-navy hover:text-white transition">Add</button>
+                </div>
+            </div>`;
+    });
+}
+        function openDirectHire(id, name) {
+            document.getElementById('svcModalTitle').innerText = `Hire ${name}`;
+            document.getElementById('directHireId').value = id;
+            document.getElementById('directHireName').value = name;
+            document.getElementById('svcSubmitBtn').innerText = "Send Request";
+            document.getElementById('serviceModal').classList.remove('hidden');
+        }
+
+        // --- SERVICES & CHAT ---
+        function openServiceForm(type) { 
+            document.getElementById('svcModalTitle').innerText = `Hire a ${type}`; 
+            document.getElementById('directHireId').value = ""; 
+            document.getElementById('directHireName').value = ""; 
+            document.getElementById('svcSubmitBtn').innerText = "Post Job"; 
+            document.getElementById('serviceModal').classList.remove('hidden'); 
+        }
+
+        function submitServiceRequest(e) {
+            e.preventDefault();
+            const desc = document.getElementById('svcDesc').value;
+            const loc = document.getElementById('svcLoc').value;
+            const directId = document.getElementById('directHireId').value;
+            const directName = document.getElementById('directHireName').value;
+
+            let market = JSON.parse(localStorage.getItem('svc_market')) || [];
+            const jobId = `JOB-${Date.now()}`;
+            
+            market.push({ 
+                id: jobId, title: desc, loc: loc, time: 'Just Now', 
+                status: 'Open', customerName: customerProfile.name, directTo: directId 
+            });
+            localStorage.setItem('svc_market', JSON.stringify(market));
+            
+            const chatTitle = directId ? `Request to ${directName}` : desc;
+            myChats.push({ id: jobId, title: chatTitle, with: "Waiting...", msgs: [], status: 'Searching' });
+            localStorage.setItem('balnova_my_chats', JSON.stringify(myChats));
+            
+            document.getElementById('serviceModal').classList.add('hidden');
+            showToast(directId ? "Request Sent to Pro!" : "Job Posted to Market!");
+            switchTab('chats'); renderChats();
+        }
+        
+        function syncUniversalChats() {
+            const bridge = JSON.parse(localStorage.getItem('balnova_universal_chats')) || [];
+            let changed = false;
+            
+            myChats.forEach(localChat => {
+                const connectedBridge = bridge.find(b => b.id === localChat.id);
+                if (connectedBridge) {
+                    if (localChat.status === 'Searching') {
+                        localChat.status = 'Connected';
+                        localChat.with = connectedBridge.pro;
+                        changed = true;
+                    }
+                }
+            });
+            
+            if(changed) {
+                localStorage.setItem('balnova_my_chats', JSON.stringify(myChats));
+                renderChats();
+            }
+            
+            if(currentChatId) {
+                const bridgeChat = bridge.find(c => c.id === currentChatId);
+                if(bridgeChat) renderMessages(bridgeChat.msgs);
+            }
+        }
+
+        function renderChats() {
+            const list = document.getElementById('chatList'); list.innerHTML = '';
+            if(myChats.length === 0) { document.getElementById('emptyChat').classList.remove('hidden'); return; }
+            document.getElementById('emptyChat').classList.add('hidden');
+            
+            myChats.forEach(c => {
+                let statusHtml = (c.status === 'Searching' || c.status === 'Pending Approval') 
+                    ? '<span class="text-xs text-yellow-500 animate-pulse">' + c.status + '</span>' 
+                    : '<span class="text-xs text-green-500 font-bold">● ' + c.with + '</span>';
+                
+                let btn = c.status === 'Connected' ? `<button onclick="openChat('${c.id}', '${c.title}')" class="bg-brand-navy text-white px-3 py-1 rounded text-xs shadow-sm">Chat</button>` : '';
+                list.innerHTML += `<div class="bg-white dark:bg-gray-800 p-4 rounded-xl border dark:border-gray-700 flex justify-between items-center shadow-sm"><div><div class="font-bold dark:text-white text-sm">${c.title}</div><div class="text-gray-500 text-sm">${statusHtml}</div></div>${btn}</div>`;
+            });
+        }
+
+        // --- PANIC MODE LOGIC ---
+let panicType = '';
+
+function toggleServiceView(view) {
+    // 1. Reset Tabs
+    ['panic', 'post', 'browse'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        const section = document.getElementById(`service-${t}-view`);
+        
+        // Reset styles
+        btn.className = "whitespace-nowrap pb-2 px-3 border-b-2 border-transparent text-gray-500 hover:text-brand-navy dark:hover:text-white transition";
+        section.classList.add('hidden');
+    });
+
+    // 2. Activate Target
+    const activeBtn = document.getElementById(`tab-${view}`);
+    const activeSection = document.getElementById(`service-${view}-view`);
+    
+    activeSection.classList.remove('hidden');
+    
+    // Custom Active Styles
+    if(view === 'panic') {
+        activeBtn.className = "whitespace-nowrap pb-2 px-3 border-b-2 border-red-500 font-bold text-red-500 animate-pulse";
+    } else {
+        activeBtn.className = "whitespace-nowrap pb-2 px-3 border-b-2 border-brand-amber font-bold text-brand-navy dark:text-white";
+    }
+}
+
+function selectPanicType(type) {
+    panicType = type;
+    document.getElementById('selectedPanicType').value = type;
+    
+    // Visual Selection
+    document.querySelectorAll('.panic-cat').forEach(b => {
+        b.classList.remove('bg-red-600', 'text-white');
+        b.classList.add('bg-white', 'dark:bg-gray-800');
+    });
+    
+    // Find the button clicked (simple iteration match)
+    event.target.classList.remove('bg-white', 'dark:bg-gray-800');
+    event.target.classList.add('bg-red-600', 'text-white');
+    
+    showToast(`${type} Selected. Press SUMMON.`);
+}
+
+function triggerPanicProtocol() {
+    if(!panicType) return showToast("Select a category first (e.g. Plumber)", "error");
+    
+    const btn = document.getElementById('panicBtn');
+    const radar = document.getElementById('panicRadar');
+    const status = document.getElementById('panicStatus');
+    const results = document.getElementById('panicResults');
+    
+    // 1. Lock UI
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-4xl"></i>`;
+    radar.classList.remove('hidden');
+    results.innerHTML = '';
+    
+    // 2. Simulation Sequence
+    status.innerText = `Broadcasting to ${panicType}s...`;
+    
+    setTimeout(() => {
+        results.innerHTML += `
+            <div class="flex items-center gap-3 p-2 bg-gray-100 dark:bg-gray-800 rounded animate-fade-in opacity-50">
+                <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center"><i class="fa-solid fa-user"></i></div>
+                <div class="text-xs text-gray-500">Scanning Zone A...</div>
+            </div>`;
+    }, 1000);
+
+    setTimeout(() => {
+        status.innerText = "2 Pros found nearby!";
+        status.className = "text-sm font-bold text-green-500 animate-pulse";
+        
+        // FOUND A PRO
+        results.innerHTML = `
+            <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-800 border-l-4 border-green-500 rounded shadow-lg animate-slide-up">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-brand-navy text-white rounded-full flex items-center justify-center font-bold">K</div>
+                    <div>
+                        <div class="font-bold text-sm dark:text-white">Kojo (Master ${panicType})</div>
+                        <div class="text-[10px] text-gray-500">1.2km away • <span class="text-brand-amber">4.9 ★</span></div>
+                    </div>
+                </div>
+                <button onclick="connectPanicPro('Kojo')" class="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-green-700">
+                    ACCEPT (GHS 50)
+                </button>
+            </div>
+        `;
+        
+        btn.innerHTML = `<i class="fa-solid fa-check text-4xl"></i>`;
+    }, 3500);
+}
+
+function connectPanicPro(name) {
+    if(!confirm(`Accept ${name} and pay GHS 50 Urgency Fee?`)) return;
+    
+    // 1. Create the Chat Logic
+    const chatId = `PANIC-${Date.now()}`;
+    const chatTitle = `🚨 URGENT: ${panicType}`;
+    
+    // 2. Add to My Chats
+    myChats.unshift({ 
+        id: chatId, 
+        title: chatTitle, 
+        with: name, 
+        msgs: [{ sender: 'ai', text: `System: ${name} accepted your emergency request. They are en route.` }], 
+        status: 'Connected' 
+    });
+    localStorage.setItem('balnova_my_chats', JSON.stringify(myChats));
+
+    // 3. Deduct Wallet (Simulated) or Add to Pending
+    // We assume COD for emergencies usually, or wallet debit
+    // For demo, just Toast it.
+    showToast(`Help is on the way! GHS 50 fee applied.`);
+    
+    // 4. Redirect
+    switchTab('chats');
+    openChat(chatId, chatTitle);
+    
+    // Reset UI
+    document.getElementById('panicBtn').disabled = false;
+    document.getElementById('panicBtn').innerHTML = `<i class="fa-solid fa-bolt text-5xl mb-2"></i><span class="font-bold text-lg">SUMMON</span>`;
+    document.getElementById('panicRadar').classList.add('hidden');
+}
+        
+        function openChat(id, title) {
+            currentChatId = id;
+            document.getElementById('chatHeaderName').innerText = title;
+            document.getElementById('chatModal').classList.remove('hidden');
+            const bridge = JSON.parse(localStorage.getItem('balnova_universal_chats')) || [];
+            const chat = bridge.find(c => c.id === id);
+            renderMessages(chat ? chat.msgs : []);
+        }
+        
+        function closeChat() { document.getElementById('chatModal').classList.add('hidden'); currentChatId = null; }
+        
+        function sendProMsg() { 
+            const txt = document.getElementById('proChatInput').value; 
+            if(!txt) return; 
+            
+            let bridge = JSON.parse(localStorage.getItem('balnova_universal_chats')) || [];
+            const idx = bridge.findIndex(g => g.id === currentChatId);
+            
+            if(idx > -1) {
+                if(!bridge[idx].msgs) bridge[idx].msgs = [];
+                bridge[idx].msgs.push({ text: txt, sender: 'user' });
+                localStorage.setItem('balnova_universal_chats', JSON.stringify(bridge));
+                renderMessages(bridge[idx].msgs);
+            }
+            document.getElementById('proChatInput').value = ''; 
+        }
+        
+        function renderMessages(msgs) {
+            const area = document.getElementById('proChatMessages');
+            area.innerHTML = '';
+            if(!msgs || msgs.length === 0) { area.innerHTML = '<div class="text-center text-xs text-gray-400 mt-4">Start the conversation...</div>'; return; }
+            msgs.forEach(m => {
+                const cls = m.sender === 'user' ? 'chat-user' : 'chat-ai';
+                area.innerHTML += `<div class="chat-bubble ${cls}">${m.text}</div>`;
+            });
+            area.scrollTop = area.scrollHeight;
+        }
+
+        // --- SHOP & INVENTORY LOGIC ---
+        function renderShop() {
+            const grid = document.getElementById('productGrid');
+            grid.innerHTML = '';
+            if(!products || products.length === 0) { grid.innerHTML = '<div class="col-span-full text-center py-20 text-gray-400">Store is empty. Vendor needs to stock up.</div>'; return; }
+            products.forEach(p => {
+                const img = (p.images && p.images[0]) ? p.images[0] : 'https://via.placeholder.com/300';
+                grid.innerHTML += `
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden group">
+                        <div onclick="openProductDetails(${p.id})" class="h-40 bg-gray-50 dark:bg-gray-900 relative cursor-pointer">
+                            <img src="${img}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                        </div>
+                        <div class="p-3">
+                            <h3 onclick="openProductDetails(${p.id})" class="font-bold text-sm truncate dark:text-white cursor-pointer hover:text-brand-amber transition">${p.name}</h3>
+                            <div class="text-brand-amber font-bold text-sm mt-1">GHS ${p.price}</div>
+                            <button onclick="addToCart(${p.id}, 1)" class="w-full mt-2 bg-brand-navy/10 text-brand-navy dark:text-white dark:bg-white/10 py-1.5 rounded text-xs font-bold hover:bg-brand-navy hover:text-white transition">Add</button>
+                        </div>
+                    </div>`;
+                    initAiRecommendations(); 
+            });
+        }
+        
+        function addToCart(id, qty) {
+            const p = products.find(x => x.id === id);
+            const existing = cart.find(x => x.id === id);
+            if(existing) existing.qty += qty; else cart.push({...p, qty: qty});
+            updateCartUI(); showToast(`Added to Cart`);
+        }
+
+        function removeFromCart(idx) {
+            const item = cart[idx];
+            cart.splice(idx, 1);
+            updateCartUI();
+            genieContext.push(`System: User removed ${item.name} from cart.`);
+            showToast("Item Removed");
+        }
+
+        function syncInventory() { products = JSON.parse(localStorage.getItem('balnova_inventory')) || []; renderShop(); }
+        
+        function checkout() {
+            if(cart.length === 0) return showToast("Cart empty", "error");
+            const locInput = document.getElementById('deliveryLoc').value;
+            if(deliveryMode === 'delivery' && !locInput) return showToast("Enter location for delivery", "error");
+            
+            const total = document.getElementById('cartTotal').innerText;
+            document.getElementById('momoAmount').innerText = total;
+            document.getElementById('momoModal').classList.remove('hidden');
+        }
+
+        // --- FULL REPLACEMENT: COMPLETE CHECKOUT ---
+// --- SECURE CHECKOUT (Merged Stock Guard v3.3) ---
+function completeCheckout() {
+    // 1. SECURITY: STOCK GUARD VERIFICATION
+    console.log("🛡️ STOCK GUARD: Verifying inventory...");
+    const liveInv = JSON.parse(localStorage.getItem('balnova_inventory')) || [];
+    
+    for (let item of cart) {
+        const dbItem = liveInv.find(i => i.id === item.id);
+        
+        // Critical: Does item exist?
+        if (!dbItem) {
+            showToast(`⛔ Sold Out: "${item.name}" is unavailable.`, "error");
+            return; 
+        }
+        // Critical: Do we have enough?
+        const available = dbItem.baseStock || 0;
+        if (available < item.qty) {
+            showToast(`⛔ Low Stock: Only ${available} units of "${item.name}" left.`, "error");
+            return;
+        }
+    }
+
+    // 2. DEDUCT INVENTORY (Commit Transaction)
+    cart.forEach(item => {
+        const stockItemIdx = liveInv.findIndex(i => i.id === item.id);
+        if (stockItemIdx > -1) {
+            liveInv[stockItemIdx].baseStock -= item.qty;
+        }
+    });
+    localStorage.setItem('balnova_inventory', JSON.stringify(liveInv));
+
+    // 3. PREPARE SESSION DATA
+    const sessionID = `BATCH-${Date.now()}`; 
+    let adminQueue = JSON.parse(localStorage.getItem('balnova_admin_queue')) || [];
+    let vendorOrders = JSON.parse(localStorage.getItem('balnova_vendor_orders')) || [];
+    let vendorWallet = JSON.parse(localStorage.getItem('balnova_vendor_wallet')) || []; 
+    let myOrders = JSON.parse(localStorage.getItem('balnova_my_orders')) || [];
+
+    const phone = customerProfile.phone || "Guest";
+    const name = customerProfile.name || "Customer";
+    const locInput = document.getElementById('deliveryLoc').value;
+    let finalDropLoc = deliveryMode === 'pickup' ? "Customer Self-Pickup" : locInput;
+
+    // 4. PROCESS CART ITEMS
+    cart.forEach(p => {
+        const orderId = `ORD-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+        const type = deliveryMode === 'pickup' ? 'Pickup' : 'Delivery';
+        const status = deliveryMode === 'pickup' ? 'Ready for Pickup' : 'Pending';
+        
+        const itemTotal = p.price * p.qty;
+        const comm = itemTotal * 0.10; 
+        const netVendorEarnings = itemTotal - comm;
+
+        // Update Wallet
+        vendorWallet.unshift({ 
+            date: new Date().toLocaleDateString(), 
+            desc: `Sale (App): ${p.name} (x${p.qty}) - 10% Comm. Deducted`, 
+            amount: netVendorEarnings, 
+            status: "Pending (Escrow)" 
+        });
+
+        // Admin Queue
+        adminQueue.push({ 
+            id: orderId, type: type, item: p.name, 
+            loc: p.hub || 'Vendor Location', dropLoc: finalDropLoc, 
+            addressId: currentSelectedAddressId, 
+            volume: (p.volume || 15) * p.qty, revenue: currentDeliveryFee, 
+            timestamp: Date.now(), customer_session_id: sessionID, status: status,
+            customerPhone: phone, customerName: name, originRegion: p.originRegion || 'GH'
+        });
+
+        // Vendor Orders
+        vendorOrders.push({ 
+            id: orderId, item: `${p.name} (x${p.qty})`, customer: name, 
+            customerPhone: phone, destination: finalDropLoc, status: "Processing", 
+            type: type, loc: p.hub || 'Vendor Location', dropLoc: finalDropLoc, 
+            volume: (p.volume || 15) * p.qty, revenue: currentDeliveryFee, 
+            feePayer: 'customer', timestamp: Date.now() 
+        });
+
+        // Customer View
+        myOrders.unshift({ 
+            id: orderId, item: `${p.name} (x${p.qty})`, 
+            status: 'Processing', time: new Date().toLocaleTimeString(), 
+            batchId: sessionID 
+        });
+    });
+
+    // 5. SAVE & CLEANUP
+    localStorage.setItem('balnova_admin_queue', JSON.stringify(adminQueue));
+    localStorage.setItem('balnova_vendor_orders', JSON.stringify(vendorOrders)); 
+    localStorage.setItem('balnova_my_orders', JSON.stringify(myOrders));
+    localStorage.setItem('balnova_vendor_wallet', JSON.stringify(vendorWallet)); 
+    
+    // Loyalty Points
+    const totalSpent = parseFloat(document.getElementById('cartTotal').innerText) || 0;
+    const pointsEarned = Math.floor(totalSpent);
+    let currentPoints = parseInt(localStorage.getItem('balnova_cust_points')) || 0;
+    localStorage.setItem('balnova_cust_points', currentPoints + pointsEarned);
+
+    showToast(`🎉 Order Placed! +${pointsEarned} Points!`);
+    if(typeof updatePointsUI === 'function') updatePointsUI();
+
+    cart = []; 
+    currentDeliveryFee = 0; 
+    isCalculatingFee = false; 
+    updateCartUI();
+    
+    window.dispatchEvent(new Event('storage'));
+    switchTab('orders'); 
+    renderOrders(); 
+    renderShop(); // Refresh UI to show stock drop
+}
+
+        // --- MOMO LOGIC ---
+        function selNet(btn) {
+            document.querySelectorAll('.net-btn').forEach(b => b.className = "net-btn border border-gray-200 p-2 rounded-lg font-bold text-xs dark:text-white");
+            btn.className = "net-btn border-2 border-brand-amber bg-brand-amber/10 p-2 rounded-lg font-bold text-xs text-brand-navy dark:text-white";
+        }
+
+        function processPayment() {
+            const btn = document.querySelector('#momoForm button');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch animate-spin"></i> Awaiting Approval...';
+            setTimeout(() => {
+                document.getElementById('momoForm').classList.add('hidden');
+                document.getElementById('momoSuccess').classList.remove('hidden');
+                completeCheckout(); 
+            }, 2000);
+        }
+
+        function closeMomo() {
+            document.getElementById('momoModal').classList.add('hidden');
+            setTimeout(() => {
+                document.getElementById('momoForm').classList.remove('hidden');
+                document.getElementById('momoSuccess').classList.add('hidden');
+                const btn = document.querySelector('#momoForm button');
+                btn.innerText = "Confirm Payment";
+                btn.disabled = false;
+            }, 500);
+        }
+
+
+// 1. Load Addresses from Shared Ecosystem DB
+function getMyAddresses() {
+    const phone = customerProfile.phone;
+    if(!phone) return [];
+    
+    const region = localStorage.getItem('balnova_active_region') || 'GH';
+    const dbKey = `balnova_customers_${region}`;
+    const db = JSON.parse(localStorage.getItem(dbKey)) || {};
+    
+    // Create profile if missing
+    if(!db[phone]) {
+        db[phone] = { name: customerProfile.name, phone: phone, addresses: [] };
+        localStorage.setItem(dbKey, JSON.stringify(db));
+    }
+    
+    return db[phone].addresses || [];
+}
+
+// 2. Render the Locations Tab
+function renderLocations() {
+    const list = document.getElementById('addressList');
+    if(!list) return;
+    const addrs = getMyAddresses();
+    
+    list.innerHTML = '';
+    if(addrs.length === 0) {
+        list.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10">No saved locations.</div>';
+        return;
+    }
+
+    addrs.forEach(a => {
+        const verifiedBadge = a.verified 
+            ? `<span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center w-fit gap-1"><i class="fa-solid fa-check-circle"></i> Verified Anchor</span>`
+            : `<span class="bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center w-fit gap-1"><i class="fa-solid fa-clock"></i> Pending Rider Check</span>`;
+            
+        const anchorInfo = a.verified && a.anchor 
+            ? `<div class="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-100 dark:border-green-800 text-xs text-green-800 dark:text-green-300"><i class="fa-solid fa-location-dot"></i> Landmark: <strong>${a.anchor}</strong></div>`
+            : '';
+
+        list.innerHTML += `
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border ${a.verified ? 'border-green-500' : 'border-gray-200 dark:border-gray-700'} relative">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-bold text-lg dark:text-white">${a.tag}</h3>
+                    ${verifiedBadge}
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-300 leading-snug">${a.rawString}</p>
+                ${anchorInfo}
+                <div class="mt-4 flex gap-2">
+                    <button onclick="deleteAddress('${a.id}')" class="text-xs text-red-400 hover:text-red-600 font-bold">Remove</button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+// 3. Add New Address (Manual)
+async function openAddAddressModal() {
+    const tag = await showInputModal("Name this spot (e.g. Home, Office):");
+    if(!tag) return;
+    const loc = await showInputModal("Describe location (Directions):");
+    if(!loc) return;
+    
+    const phone = customerProfile.phone;
+    if(!phone) return showToast("Update Profile with Phone Number first!", "error");
+
+    const region = localStorage.getItem('balnova_active_region') || 'GH';
+    const dbKey = `balnova_customers_${region}`;
+    const db = JSON.parse(localStorage.getItem(dbKey)) || {};
+    
+    if(!db[phone]) db[phone] = { name: customerProfile.name, phone: phone, addresses: [] };
+    
+    db[phone].addresses.push({
+        id: `ADDR-${Date.now()}`,
+        tag: tag,
+        rawString: loc,
+        verified: false, // Start unverified
+        anchor: null
+    });
+    
+    localStorage.setItem(dbKey, JSON.stringify(db));
+    renderLocations();
+    showToast("Location Saved!");
+}
+
+// 4. Cart Integration (Chips)
+function loadSavedAddressesToCart() {
+            const addrs = getMyAddresses();
+            const chips = document.getElementById('cartAddressChips');
+            
+            if(addrs.length === 0) return showToast("No saved locations found.");
+            
+            chips.classList.remove('hidden');
+            // UPDATED: Now passing a.id to the function
+            chips.innerHTML = addrs.map(a => `
+                <button onclick="useAddress('${a.id}', '${a.rawString}', ${a.verified}, '${a.tag}')" 
+                class="whitespace-nowrap px-3 py-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-1 ${a.verified ? 'bg-green-50 border-green-400 text-green-700' : 'bg-white border-gray-300 text-gray-600'}">
+                    ${a.verified ? '<i class="fa-solid fa-star"></i>' : '<i class="fa-solid fa-map-pin"></i>'} ${a.tag}
+                </button>
+            `).join('');
+        }
+
+        function useAddress(id, str, ver, tag) {
+            const input = document.getElementById('deliveryLoc');
+            input.value = str;
+            currentSelectedAddressId = id; // Store the ID for checkout
+            
+            handleLocationInput(str); // Trigger fee calc
+            
+            document.getElementById('locStatus').innerHTML = ver 
+                ? `<span class="text-green-500 font-bold"><i class="fa-solid fa-check"></i> Using Verified Anchor (${tag})</span>`
+                : `<span class="text-gray-500">Using Saved Draft (${tag})</span>`;
+                
+            document.getElementById('cartAddressChips').classList.add('hidden');
+        }
+
+        // UPDATE handleLocationInput to reset the ID if they type manually
+        const originalHandleInput = handleLocationInput;
+        handleLocationInput = function(val) {
+            currentSelectedAddressId = null; // Reset if user types manually
+            originalHandleInput(val);
+        }
+
+// 5. SIMULATION: The Rider Feedback Loop
+function simulateRiderVerification() {
+    const phone = customerProfile.phone;
+    if(!phone) return showToast("No phone number saved.", "error");
+
+    const region = localStorage.getItem('balnova_active_region') || 'GH';
+    const dbKey = `balnova_customers_${region}`;
+    const db = JSON.parse(localStorage.getItem(dbKey)) || {};
+    
+    if(db[phone] && db[phone].addresses.length > 0) {
+        // Verify the first address
+        db[phone].addresses[0].verified = true;
+        db[phone].addresses[0].anchor = "Blue Kiosk, Black Gate (GPS Verified)";
+        localStorage.setItem(dbKey, JSON.stringify(db));
+        
+        renderLocations();
+        showToast("Rider updated: 'Home' is now Verified ✅", "success");
+    } else {
+        showToast("Create an address first!", "error");
+    }
+}
+
+    function syncStatus() {
+            // 1. Read LIVE Rider Progress
+            const riderProgress = JSON.parse(localStorage.getItem('balnova_rider_progress'));
+            const adminQueue = JSON.parse(localStorage.getItem('balnova_admin_queue')) || [];
+            
+            let changed = false;
+
+            myOrders.forEach(o => {
+                let newStatus = o.status;
+                
+                // Find order details in Admin Queue to get the addressId
+                const adminOrder = adminQueue.find(q => q.id === o.id);
+
+                // A. Check Admin Queue
+                if (adminOrder) {
+                    if (adminOrder.status === 'Processing') newStatus = "Processing";
+                    if (adminOrder.status === 'Ready for Pickup') newStatus = "Ready for Pickup";
+                    if (adminOrder.status === 'Dispatched') newStatus = "Rider En Route";
+                }
+
+                // B. Check Rider Progress
+                if (riderProgress && riderProgress.stops) {
+                    const relatedStop = riderProgress.stops.find(s => 
+                        (s.note && s.note.includes(o.id)) || 
+                        (s.note === o.item && s.type === 'drop')
+                    );
+                    
+                    if(relatedStop) {
+                        if (relatedStop.status === 'pending') newStatus = "Out for Delivery";
+                        if (relatedStop.status === 'done') newStatus = "Delivered";
+                        if (relatedStop.status === 'failed') {
+                            newStatus = "Delivery Failed"; 
+                            o.failureReason = relatedStop.note || "Rider issue";
+                        }
+                    }
+                }
+                
+                // THE BLUE KIOSK LOGIC: Auto-Verify Address on Delivery
+                if(newStatus === 'Delivered' && o.status !== 'Delivered') {
+                    showToast(`Order ${o.item} Delivered! 📦`);
+                    
+                    // If this order used a saved address, VERIFY IT NOW
+                    if (adminOrder && adminOrder.addressId) {
+                        const phone = customerProfile.phone;
+                        const region = localStorage.getItem('balnova_active_region') || 'GH';
+                        const dbKey = `balnova_customers_${region}`;
+                        const db = JSON.parse(localStorage.getItem(dbKey)) || {};
+
+                        if (db[phone]) {
+                            const addrIndex = db[phone].addresses.findIndex(a => a.id === adminOrder.addressId);
+                            if (addrIndex > -1 && !db[phone].addresses[addrIndex].verified) {
+                                // Auto-update to verified
+                                db[phone].addresses[addrIndex].verified = true;
+                                db[phone].addresses[addrIndex].anchor = "Blue Kiosk (Auto-Verified by Delivery)";
+                                localStorage.setItem(dbKey, JSON.stringify(db));
+                                showToast("Location Verified for future use! ✅");
+                                renderLocations(); // Refresh UI if they are looking at it
+                            }
+                        }
+                    }
+                }
+
+                if(newStatus !== o.status) { 
+                    o.status = newStatus; 
+                    changed = true; 
+                }
+            });
+
+            if(changed) { 
+                localStorage.setItem('balnova_my_orders', JSON.stringify(myOrders)); 
+                renderOrders(); 
+            }
+        }
+
+    if(changed) { 
+        localStorage.setItem('balnova_my_orders', JSON.stringify(myOrders)); 
+        renderOrders(); 
+    }
+
+        // --- UPDATED: VISUAL ORDER TIMELINE ---
+function renderOrders() {
+    const list = document.getElementById('orderList'); 
+    list.innerHTML = '';
+    
+    if (myOrders.length === 0) {
+        list.innerHTML = '<div class="text-center py-10 text-gray-400">No active orders.</div>';
+        return;
+    }
+    
+    myOrders.forEach(o => {
+        // 1. Determine Progress Step (1-4)
+        let step = 1; 
+        let color = "bg-yellow-500";
+        let textColor = "text-yellow-600";
+        let statusText = "Order Placed";
+        
+        // Map Admin/Vendor statuses to User Timeline
+        if (o.status.includes("Processing")) { 
+            step = 2; statusText = "Vendor Packing"; 
+            color="bg-blue-500"; textColor="text-blue-600"; 
+        }
+        if (o.status.includes("Ready") || o.status.includes("Bay") || o.status.includes("Queued")) { 
+            step = 2; statusText = "Warehouse Sorting"; 
+            color="bg-purple-500"; textColor="text-purple-600";
+        }
+        if (o.status.includes("Rider") || o.status.includes("En Route") || o.status.includes("Vacuum")) { 
+            step = 3; statusText = "Out for Delivery"; 
+            color="bg-brand-amber"; textColor="text-brand-amber";
+        }
+        if (o.status.includes("Delivered")) { 
+            step = 4; statusText = "Delivered"; 
+            color="bg-green-500"; textColor="text-green-600";
+        }
+        if (o.status.includes("Failed") || o.status.includes("Return")) { 
+            step = 4; statusText = "Delivery Failed"; 
+            color="bg-red-500"; textColor="text-red-600";
+        }
+
+        // 2. Generate Timeline Bars
+        // Creates 4 distinct segments, lighting them up based on 'step'
+        const bars = [1, 2, 3, 4].map(s => `
+            <div class="flex-1 h-1.5 rounded-full mx-0.5 ${s <= step ? color : 'bg-gray-200 dark:bg-gray-700'} transition-all duration-500"></div>
+        `).join('');
+
+        // 3. Render Card HTML
+        list.innerHTML += `
+            <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden transition-all hover:shadow-md">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+<div class="font-bold text-sm dark:text-white truncate pr-2">${o.item}</div>
+<div class="text-[10px] text-gray-400 font-mono mt-0.5">ID: ${o.id}</div>                        <div class="text-[10px] text-gray-400 font-mono mt-0.5">ID: ${o.id}</div>
+                    </div>
+                    <span class="${textColor} text-[10px] font-bold px-2 py-1 bg-gray-50 dark:bg-gray-900 border border-opacity-10 border-current rounded uppercase tracking-wider">
+                        ${statusText}
+                    </span>
+                </div>
+                
+                <div class="flex mb-2">${bars}</div>
+                
+                <div class="flex justify-between text-[9px] text-gray-400 font-medium uppercase tracking-wide">
+                    <span>Confirmed</span>
+                    <span>Packed</span>
+                    <span>On Bike</span>
+                    <span>Done</span>
+                </div>
+                
+                ${o.status.includes('Failed') ? `
+                    <div class="mt-3 p-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs rounded border border-red-100 dark:border-red-800 flex items-start gap-2">
+                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                        <span><strong>Issue:</strong> ${o.failureReason || 'Customer unavailable'}</span>
+                    </div>` : ''}
+            </div>
+        `;
+    });
+}
+
+        // --- AI HELPER ---
+        async function callGemini(prompt, raw = false) {
+            if(!apiKey) { showToast("Save API Key first", "error"); return null; }
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) 
+                });
+                const d = await r.json();
+                const text = d.candidates[0].content.parts[0].text;
+                return raw ? text : marked.parse(text);
+            } catch(e) { showToast("AI Error. Check Key.", "error"); return null; }
+        }
+
+        function openGenie() { document.getElementById('genieModal').classList.remove('hidden'); }
+        
+        async function sendGenie() {
+            const input = document.getElementById('genieInput');
+            const txt = input.value; if(!txt) return;
+            
+            const area = document.getElementById('genieMessages');
+            area.innerHTML += `<div class="chat-bubble chat-user">${txt}</div>`;
+            input.value = '';
+            area.scrollTop = area.scrollHeight;
+
+            if(!apiKey) { area.innerHTML += `<div class="chat-bubble chat-ai">Please save API Key in Profile Settings.</div>`; return; }
+
+            const loadingId = `loading-${Date.now()}`;
+            area.innerHTML += `<div class="chat-bubble chat-ai" id="${loadingId}">Thinking...</div>`;
+            
+            // --- AI UPGRADE: LIVE INVENTORY CONTEXT ---
+            // 1. Build a strict catalog of ONLY what is in stock
+            const stockContext = products
+                .filter(p => (p.baseStock || 0) > 0) // Filter out out-of-stock
+                .map(p => `ID:${p.id} | Name:${p.name} | Brand:${p.brand || 'Generic'} | Price:GHS ${p.price} | Desc:${p.desc || 'Great item'}`)
+                .join('\n');
+
+            // 2. The "Grounding" Prompt
+            const prompt = `
+                SYSTEM: You are Nova, the official sales AI for this shop.
+                
+                CRITICAL RULES:
+                1. You have access to the LIVE_INVENTORY list below.
+                2. You must ONLY recommend products from this list.
+                3. If the user asks for something not on the list (e.g., "Pizza"), politely say you don't have it and suggest a relevant alternative from the list (e.g., "I don't have pizza, but I have this great iPhone").
+                4. NEVER hallucinate products or prices. Use exact GHS prices from the list.
+                
+                LIVE_INVENTORY:
+                ${stockContext || "No items in stock."}
+                
+                USER SAYS: "${txt}"
+                
+                RESPONSE FORMAT:
+                - Keep it conversational and brief (under 40 words).
+                - If the user wants to buy, END your message with this exact tag: [ADD:ID,QTY:N]
+            `;
+
+            // 3. Call AI
+            const rawResponse = await callGemini(prompt, true);
+            document.getElementById(loadingId).remove();
+            
+            if(!rawResponse) return;
+
+            // 4. Parse "Action Tags"
+            const addRegex = /\[ADD:(\d+),QTY:(\d+)\]/i;
+            const match = rawResponse.match(addRegex);
+            
+            let displayResponse = rawResponse.replace(addRegex, '').trim();
+            let pricePreviewHtml = "";
+
+            if(match) {
+                const pid = parseInt(match[1]);
+                const qty = parseInt(match[2]);
+                const item = products.find(p => p.id === pid);
+
+                if (item) {
+                    addToCart(pid, qty); 
+                    const subtotal = (item.price * qty).toFixed(2);
+                    pricePreviewHtml = `
+                        <div class="mt-2 p-3 bg-brand-amber/10 border border-brand-amber/30 rounded-lg text-xs animate-pulse">
+                            <div class="flex justify-between font-bold text-brand-navy dark:text-brand-amber mb-1">
+                                <span><i class="fa-solid fa-cart-plus"></i> Added to Cart</span>
+                                <span>GHS ${subtotal}</span>
+                            </div>
+                            <div class="text-[10px] opacity-70">${item.name} (x${qty})</div>
+                        </div>
+                    `;
+                }
+            }
+            area.innerHTML += `<div class="chat-bubble chat-ai">${marked.parse(displayResponse)} ${pricePreviewHtml}</div>`;
+            area.scrollTop = area.scrollHeight;
+        }
+
+        async function polishServiceDescription() {
+            const descEl = document.getElementById('svcDesc');
+            const original = descEl.value;
+            if(!original) return showToast("Type something first!", "error");
+            descEl.value = "✨ Polishing with AI...";
+            const prompt = `Rewrite service request to be professional: "${original}". Output only the new text.`;
+            const response = await callGemini(prompt, true); 
+            if(response) { descEl.value = response.trim(); showToast("Description Polished! ✨"); } 
+            else { descEl.value = original; }
+        }
+
+        async function analyzeCart() {
+            if(cart.length === 0) return showToast("Cart is empty!", "error");
+            showToast("✨ Analyzing Cart...", "info");
+            const items = cart.map(c => c.name).join(', ');
+            const prompt = `Analyze cart: ${items}. 1. Fun Bundle Name. 2. One missing item suggestion. 3. Why. Format: Markdown.`;
+            const response = await callGemini(prompt, false); 
+            if(response) { document.getElementById('aiResultContent').innerHTML = response; document.getElementById('aiResultModal').classList.remove('hidden'); }
+        }
+        
+        function openProductDetails(id) {
+            const p = products.find(x => x.id === id);
+            if(!p) return;
+            currentProductImages = (p.images && p.images.length > 0) ? p.images : ['https://via.placeholder.com/300'];
+            currentImageIdx = 0;
+            updateGalleryUI();
+            document.getElementById('pmQty').value = 1;
+            document.getElementById('pmName').innerText = p.name;
+            document.getElementById('pmPrice').innerText = `GHS ${p.price}`;
+            document.getElementById('pmDesc').innerText = p.desc || "No detailed description provided.";
+            const vContainer = document.getElementById('pmVariants');
+            const vArea = document.getElementById('pmVariantsArea');
+            vContainer.innerHTML = '';
+            if(p.variants && p.variants.length > 0) {
+                vArea.classList.remove('hidden');
+                p.variants.forEach((v, idx) => {
+                    const vImg = (v.images && v.images.length > 0) ? v.images[0] : (v.image || '');
+                    vContainer.innerHTML += `
+                        <button onclick="selectVariant(${p.id}, ${idx})" class="bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg text-sm border hover:border-brand-amber hover:bg-brand-amber/10 flex items-center gap-2 transition-all">
+                            <img src="${vImg}" class="w-6 h-6 rounded-full object-cover">
+                            <span class="dark:text-white">${v.color}</span>
+                        </button>`;
+                });
+            } else { vArea.classList.add('hidden'); }
+            renderRecommendations(p.id);
+            const btn = document.getElementById('pmAddToCart');
+            btn.onclick = function() { 
+                const qty = parseInt(document.getElementById('pmQty').value) || 1;
+                addToCart(p.id, qty); 
+                document.getElementById('productModal').classList.add('hidden'); 
+            };
+            document.getElementById('productModal').classList.remove('hidden');
+        }
+        
+        function selectVariant(pid, vIdx) {
+            const p = products.find(x => x.id === pid);
+            if(p && p.variants[vIdx]) {
+                const v = p.variants[vIdx];
+                if(v.images && v.images.length > 0) { currentProductImages = v.images; currentImageIdx = 0; updateGalleryUI(); } 
+                else if(v.image) { currentProductImages = [v.image]; currentImageIdx = 0; updateGalleryUI(); }
+            }
+        }
+        
+        function renderRecommendations(currentId) {
+            const recContainer = document.getElementById('pmRecommendations');
+            recContainer.innerHTML = '';
+            const others = products.filter(p => p.id !== currentId).sort(() => 0.5 - Math.random()).slice(0, 3);
+            others.forEach(p => {
+                const img = (p.images && p.images[0]) ? p.images[0] : '';
+                recContainer.innerHTML += `
+                    <div onclick="openProductDetails(${p.id})" class="flex-shrink-0 w-24 cursor-pointer group">
+                        <img src="${img}" class="w-24 h-24 rounded-lg object-cover bg-gray-100 mb-1 group-hover:opacity-80">
+                        <div class="text-[10px] font-bold truncate dark:text-white">${p.name}</div>
+                        <div class="text-[10px] text-brand-amber">GHS ${p.price}</div>
+                    </div>`;
+            });
+        }
+        
+        function changeQty(n) {
+            const el = document.getElementById('pmQty');
+            let val = parseInt(el.value) + n;
+            if(val < 1) val = 1;
+            el.value = val;
+        }
+        
+        function updateGalleryUI() {
+            document.getElementById('pmImg').src = currentProductImages[currentImageIdx];
+            const showNav = currentProductImages.length > 1;
+            document.getElementById('btnPrevImg').classList.toggle('hidden', !showNav);
+            document.getElementById('btnNextImg').classList.toggle('hidden', !showNav);
+            const counter = document.getElementById('imgCounter');
+            counter.innerText = `${currentImageIdx + 1}/${currentProductImages.length}`;
+            counter.classList.toggle('hidden', !showNav);
+        }
+        
+        function nextImage() { currentImageIdx = (currentImageIdx + 1) % currentProductImages.length; updateGalleryUI(); }
+        function prevImage() { currentImageIdx = (currentImageIdx - 1 + currentProductImages.length) % currentProductImages.length; updateGalleryUI(); }
+
+        function saveApiKey() { localStorage.setItem('gemini_api_key', document.getElementById('apiKeyInput').value); showToast("Key Saved"); apiKey = document.getElementById('apiKeyInput').value; }
+        function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.setItem('cust_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); }
+        function showToast(m, t='success') { 
+            const d=document.createElement('div'); 
+            const color = t==='success' ? 'bg-brand-navy' : (t==='info' ? 'bg-brand-blue' : 'bg-red-600');
+            d.className=`${color} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3`; 
+            d.innerText=m; 
+            document.getElementById('toastContainer').appendChild(d); 
+            setTimeout(()=>d.remove(),3000); 
+        }
+        
+        async function resetSimulation() {
+            if(await showConfirmModal("Reset YOUR data? (Vendor inventory remains)")) {
+                localStorage.removeItem('balnova_my_orders');
+                localStorage.removeItem('balnova_my_chats');
+                localStorage.removeItem('balnova_customer_profile');
+                cart = [];
+                location.reload();
+            }
+        }
+        function forceRefreshShop() { syncInventory(); showToast("Store Refreshed"); }
+        function saveProfile() {
+    customerProfile.name = document.getElementById('custNameInput').value;
+    customerProfile.phone = document.getElementById('custPhoneInput').value; // Save Phone
+    localStorage.setItem('balnova_customer_profile', JSON.stringify(customerProfile));
+    showToast("Profile Saved");
+    }
+
+    function loadSavedAddresses() {
+    const phone = customerProfile.phone;
+    if(!phone) return;
+
+    // Access the Shared Customer DB
+    const region = localStorage.getItem('balnova_active_region') || 'GH';
+    const dbKey = `balnova_customers_${region}`;
+    const db = JSON.parse(localStorage.getItem(dbKey)) || {};
+    const profile = db[phone];
+
+    const container = document.getElementById('savedAddressList');
+    
+    if (profile && profile.addresses && profile.addresses.length > 0) {
+        container.classList.remove('hidden');
+        container.innerHTML = profile.addresses.map(addr => `
+            <button onclick="useSavedAddress('${addr.rawString}', ${addr.verified})" 
+                class="px-3 py-2 text-xs rounded-lg border ${addr.verified ? 'bg-green-100 border-green-300 text-green-700' : 'bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300'} transition flex items-center gap-1">
+                ${addr.verified ? '<i class="fa-solid fa-circle-check"></i>' : '<i class="fa-solid fa-map-pin"></i>'} 
+                ${addr.tag}
+            </button>
+        `).join('');
+    } else {
+        container.innerHTML = '<span class="text-[10px] text-gray-400">No saved locations found. Order to create one.</span>';
+        container.classList.remove('hidden');
+    }
+}
+
+function useSavedAddress(loc, verified) {
+    const input = document.getElementById('deliveryLoc');
+    input.value = loc;
+    
+    if(verified) {
+        document.getElementById('locStatus').innerHTML = `<span class="text-green-500 font-bold"><i class="fa-solid fa-satellite"></i> Verified Pin Locked</span>`;
+        input.classList.add('border-green-500', 'ring-1', 'ring-green-500');
+        // Simulate instant fee calc since we know where it is
+        handleLocationInput(loc); 
+    } else {
+        document.getElementById('locStatus').innerText = "Using saved address history.";
+        input.classList.remove('border-green-500', 'ring-1', 'ring-green-500');
+        handleLocationInput(loc);
+    }
+}
+        function startVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window)) { showToast("Voice not supported in this browser", "error"); return; }
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onstart = () => showToast("Listening...", "info");
+            recognition.onresult = (event) => {
+                document.getElementById('genieInput').value = event.results[0][0].transcript;
+                sendGenie();
+            };
+            recognition.start();
+        }
+        // --- LOYALTY SYSTEM ---
+function updatePointsUI() {
+    const pts = parseInt(localStorage.getItem('balnova_cust_points')) || 0;
+    const display = document.getElementById('novaPointsDisplay');
+    
+    if(display) {
+        // Simple counter animation
+        let start = parseInt(display.innerText) || 0;
+        if (start !== pts) {
+            display.innerText = pts;
+            display.classList.add('animate-pulse');
+            setTimeout(() => display.classList.remove('animate-pulse'), 1000);
+        }
+    }
+}
+
+// Add to your existing Init function or Event Listener
+document.addEventListener('DOMContentLoaded', () => {
+    updatePointsUI();
+});
+
+    </script>
+</body>
+</html>

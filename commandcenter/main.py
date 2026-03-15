@@ -1,4 +1,4 @@
-﻿# main.py - Bal Nova Empire Brain (v3.3 - The Full Statistical Stack)
+# main.py - Bal Nova Empire Brain (v3.3 - The Full Statistical Stack)
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -72,23 +72,37 @@ class ABTestRequest(BaseModel):
 DATA_FILE = "delivery_history.csv"
 
 def load_data():
-    """Loads real data if it exists, otherwise returns empty."""
+    """Loads real data if it exists, otherwise loads dummy seed data."""
     if os.path.exists(DATA_FILE):
-        print(f"ðŸ“‚ Loading real data from {DATA_FILE}...")
+        print(f"📂 Loading real data from {DATA_FILE}...")
         try:
             return pd.read_csv(DATA_FILE)
         except Exception as e:
-            print(f"âš ï¸ Corrupt Data File: {e}. Starting empty.")
-            return pd.DataFrame()
-    return pd.DataFrame()
+            print(f"⚠️ Corrupt Data File: {e}. Re-seeding.")
+            return seed_dummy_data()
+    else:
+        return seed_dummy_data()
+
+def seed_dummy_data():
+    print("🌱 No history found. Seeding with dummy logic...")
+    # Seed data (The Physics of Accra)
+    data = {
+        'distance_km': [2, 5, 10, 15, 20, 25, 5, 10],
+        'traffic_factor': [1.0, 1.0, 1.2, 1.5, 1.8, 2.0, 1.5, 2.0],
+        'is_raining': [0, 0, 0, 0, 0, 0, 1, 1],
+        'actual_minutes': [10, 20, 45, 75, 110, 150, 35, 60]
+    }
+    df = pd.DataFrame(data)
+    df.to_csv(DATA_FILE, index=False)
+    return df
 
 # --- TRAIN THE BRAIN ON STARTUP ---
 df = load_data()
 model = LinearRegression()
-# Train only when data is present
+# Basic training to ensure endpoints don't crash
 if not df.empty:
     model.fit(df[['distance_km', 'traffic_factor', 'is_raining']], df['actual_minutes'])
-print(f"ðŸ§  BRAIN ONLINE: Optimized Route Engine Ready. Regression Trained on {len(df)} trips.")
+print(f"🧠 BRAIN ONLINE: Optimized Route Engine Ready. Regression Trained on {len(df)} trips.")
 
 
 # --- PILLAR 1: OPERATIONS RESEARCH (TSP OPTIMIZER) ---
@@ -127,8 +141,6 @@ def solve_tsp(data: RouteRequest):
 # --- PILLAR 4: REGRESSION ANALYSIS (SMART ETA) ---
 @app.post("/predict-eta")
 def predict_eta(data: ETARequest):
-    if df.empty:
-        raise HTTPException(status_code=400, detail="No training data available.")
     rain_val = 1 if data.is_raining else 0
     input_vector = [[data.distance_km, data.traffic_factor, rain_val]]
     
@@ -175,7 +187,7 @@ async def record_trip(data: TrainingData):
     # We only train on physics columns, ignoring the new timestamp for ETA logic
     model.fit(df[['distance_km', 'traffic_factor', 'is_raining']], df['actual_minutes'])
     
-    print(f"ðŸŽ“ LEARNING: Trip saved at {current_time}. Brain size: {len(df)}")
+    print(f"🎓 LEARNING: Trip saved at {current_time}. Brain size: {len(df)}")
     return {"message": "Knowledge Saved", "total_experiences": len(df)}
 
 # --- PILLAR 6: QUEUEING THEORY (LOAD BALANCER) ---
@@ -207,7 +219,7 @@ def get_forecast(days: int = 7):
     
     # 2. Heuristic: If we don't have enough data (< 5 points), simulate to avoid crash
     if len(history_df) < 5:
-        print("âš ï¸ Not enough real data for forecast. Using Simulation Mode.")
+        print("⚠️ Not enough real data for forecast. Using Simulation Mode.")
         # ... (Falls back to the old random logic if you wiped memory) ...
         dates = pd.date_range(end=datetime.today(), periods=60)
         sim_revenue = [500 + np.random.randint(-50, 50) for _ in dates]
@@ -328,9 +340,9 @@ def perform_clustering(data: ClusterRequest):
     
     # Map internal IDs to Human Names
     cluster_names = {
-        sorted_clusters[0]: "Rookies ðŸŒ± (Low Spend)",
-        sorted_clusters[1]: "Regulars ðŸ›¡ï¸ (Mid Tier)",
-        sorted_clusters[2]: "Whales ðŸ³ (High Value)"
+        sorted_clusters[0]: "Rookies 🌱 (Low Spend)",
+        sorted_clusters[1]: "Regulars 🛡️ (Mid Tier)",
+        sorted_clusters[2]: "Whales 🐳 (High Value)"
     }
     
     # 6. Prepare Response
@@ -414,13 +426,15 @@ def reset_brain():
     # 1. Delete the file
     if os.path.exists(DATA_FILE):
         os.remove(DATA_FILE)
-        print("ðŸ’¥ MEMORY WIPED: CSV deleted.")
+        print("💥 MEMORY WIPED: CSV deleted.")
     
-    # 2. Reset to empty
-    df = pd.DataFrame()
-    model = LinearRegression()
+    # 2. Re-seed
+    df = seed_dummy_data()
     
-    return {"message": "AI Memory Wiped. Ready for Production (no seed data)."}
+    # 3. Retrain
+    model.fit(df[['distance_km', 'traffic_factor', 'is_raining']], df['actual_minutes'])
+    
+    return {"message": "AI Memory Wiped. Ready for Production."}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

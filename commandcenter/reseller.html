@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reseller Portal | Bal Nova Empire</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { navy: '#002D62', amber: '#FFBF00', blue: '#0A2342', dark: '#0f172a', light: '#f8fafc' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+
+    <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .dark ::-webkit-scrollbar-thumb { background: #334155; }
+    .blur-lock { filter: blur(4px); pointer-events: none; user-select: none; }
+    .countdown-overlay { position: absolute; inset: 0; background: rgba(0, 45, 98, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; z-index: 10; border-radius: 0.5rem; }
+    .tier-badge { position: absolute; top: -5px; right: -5px; padding: 2px 6px; border-radius: 99px; font-size: 9px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    
+    /* [FIXED] Separate Dark Mode Logic */
+    .lock-overlay { 
+        position: absolute; 
+        inset: 0; 
+        background: rgba(255,255,255,0.9); 
+        backdrop-filter: blur(2px); 
+        z-index: 20; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center; 
+        text-align: center; 
+        border-radius: 0.75rem; 
+    }
+    .dark .lock-overlay { 
+        background: rgba(15, 23, 42, 0.85); 
+    }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans transition-colors duration-300 dark:bg-brand-dark dark:text-gray-100 overflow-hidden h-screen flex">
+
+    <div id="toastContainer" class="fixed top-5 right-5 z-[60] flex flex-col gap-2 pointer-events-none"></div>
+
+    <aside id="sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 w-64 bg-brand-navy text-white flex flex-col transition-transform duration-300 z-50 shadow-xl border-r border-white/10">
+        <div class="p-6 flex flex-col items-center border-b border-white/10">
+            <div id="shopBrandArea" class="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mb-3 border-2 border-brand-amber relative overflow-hidden">
+                <i class="fa-solid fa-store text-3xl text-brand-amber"></i>
+            </div>
+            <div class="relative">
+                <h1 class="font-bold text-xl tracking-wide text-center" id="shopNameDisplay">My Shop</h1>
+                <div class="tier-badge bg-brand-amber text-brand-navy" id="tierBadge">TIER 1</div>
+            </div>
+            <p class="text-xs text-brand-amber/80 truncate w-full text-center mt-1" id="shopUrlDisplay">balnova.com/store/user</p>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-200 hover:text-white group active-nav">
+                <i class="fa-solid fa-chart-simple w-6 text-center group-hover:text-brand-amber"></i> Dashboard
+            </button>
+            <button onclick="switchTab('marketplace')" id="nav-marketplace" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-200 hover:text-white group">
+                <i class="fa-solid fa-globe w-6 text-center group-hover:text-brand-amber"></i> Global Market
+            </button>
+            <button onclick="switchTab('myshop')" id="nav-myshop" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-200 hover:text-white group">
+                <i class="fa-solid fa-shirt w-6 text-center group-hover:text-brand-amber"></i> My Inventory
+            </button>
+            <button onclick="switchTab('active_orders')" id="nav-active_orders" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-200 hover:text-white group">
+                <i class="fa-solid fa-box-open w-6 text-center group-hover:text-brand-amber"></i> Active Orders
+            </button>
+            <button onclick="switchTab('wallet')" id="nav-wallet" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-200 hover:text-white group">
+                <i class="fa-solid fa-wallet w-6 text-center group-hover:text-brand-amber"></i> Wallet
+            </button>
+            <button onclick="switchTab('team')" id="nav-team" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-200 hover:text-white group hidden">
+                <i class="fa-solid fa-users w-6 text-center text-purple-400 group-hover:text-brand-amber"></i> My Sales Team
+            </button>
+            <button onclick="switchTab('settings')" id="nav-settings" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-left text-gray-200 hover:text-white group mt-4 border-t border-white/10 pt-4">
+                <i class="fa-solid fa-gear w-6 text-center group-hover:text-brand-amber"></i> Settings & Tier
+            </button>
+        </nav>
+        
+        <div class="p-4 bg-black/20 text-xs text-center text-gray-300">
+            Nova Credits: <span id="creditBalance" class="font-bold text-brand-amber">0</span>
+        </div>
+    </aside>
+
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden backdrop-blur-sm"></div>
+
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative pt-16 md:pt-0">
+        <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-6 shrink-0 transition-colors">
+            <h2 class="text-xl font-bold text-brand-navy dark:text-white hidden md:block" id="pageTitle">Dashboard</h2>
+            <div class="flex items-center gap-4 ml-auto">
+                <div class="text-xs font-bold text-green-500 flex items-center gap-1 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Live Sync
+                </div>
+                <button onclick="simulateOrder()" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors text-xs font-bold border border-green-200">
+                    <i class="fa-solid fa-cart-shopping"></i> Quick Sale (Random)
+                </button>
+                <button onclick="toggleTheme()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors text-brand-navy dark:text-brand-amber"><i class="fa-solid fa-moon" id="themeIcon"></i></button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+            
+            <div id="section-dashboard" class="tab-section animate-fade-in">
+                <div class="mb-6 relative group">
+                    <div id="marketPulseLock" class="lock-overlay">
+                        <i class="fa-solid fa-lock text-3xl text-brand-navy mb-2"></i>
+                        <h4 class="font-bold text-brand-navy dark:text-white">Unlock Ecosystem Intelligence</h4>
+                        <p class="text-xs text-gray-500 mb-3">Upgrade to Tier 2 to see real-time supply vs demand data.</p>
+                        <button onclick="switchTab('settings')" class="bg-brand-amber text-brand-navy px-4 py-2 rounded-lg text-xs font-bold hover:bg-yellow-400">Upgrade Tier</button>
+                    </div>
+                    <div class="bg-gradient-to-r from-brand-navy to-brand-blue rounded-xl p-6 text-white shadow-lg relative">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="font-bold text-lg text-brand-amber"><i class="fa-solid fa-bolt mr-2"></i>Market Pulse</h3>
+                                <p class="text-blue-200 text-sm">Analyzing Bal Nova Ecosystem...</p>
+                            </div>
+                            <button onclick="refreshPulse()" class="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition"><i class="fa-solid fa-rotate-right text-brand-amber"></i></button>
+                        </div>
+                        <div id="pulseContent" class="text-sm leading-relaxed min-h-[60px]">
+                            <span class="opacity-50">Click refresh to scan global sales data.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="relative bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                        <div id="shopAnalystLock" class="lock-overlay">
+                            <i class="fa-solid fa-robot text-3xl text-brand-blue mb-2"></i>
+                            <h4 class="font-bold text-brand-navy dark:text-white">Unlock Shop Analyst</h4>
+                            <p class="text-xs text-gray-500 mb-3">Upgrade to Tier 2 for personalized sales advice.</p>
+                        </div>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold dark:text-white text-brand-navy">My Shop Analyst</h3>
+                            <button onclick="analyzeShop()" class="text-xs bg-brand-navy/10 text-brand-navy dark:text-white px-3 py-1 rounded font-bold hover:bg-brand-navy hover:text-white"><i class="fa-solid fa-wand-magic-sparkles"></i> Analyze</button>
+                        </div>
+                        <div id="analystContent" class="text-sm text-gray-600 dark:text-gray-300 min-h-[60px]">Click analyze to see insights on your top sellers vs dead stock.</div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border-l-4 border-brand-amber">
+                            <div class="text-xs text-gray-500 uppercase">Total Profit (Pending)</div>
+                            <div class="text-2xl font-black text-brand-navy dark:text-white">GHS <span id="dashProfit">0.00</span></div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border-l-4 border-brand-navy">
+                            <div class="text-xs text-gray-500 uppercase">Shop Interactions</div>
+                            <div class="text-2xl font-black text-brand-navy dark:text-white">1,204 <span class="text-xs text-green-500 font-normal">+12%</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                      <div class="h-48 w-full"><canvas id="salesChart"></canvas></div>
+                </div>
+            </div>
+
+            <div id="section-marketplace" class="tab-section hidden animate-fade-in">
+                <div class="mb-8">
+                    <div class="flex items-center gap-2 mb-4">
+                        <h3 class="font-bold text-lg dark:text-white">🔥 Just Landed (Early Access)</h3>
+                        <span class="text-[10px] bg-brand-amber text-brand-navy px-2 py-0.5 rounded font-bold uppercase">Tier 3 VIP</span>
+                    </div>
+                    <div id="vipGrid" class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg dark:text-white mb-4">📦 General Warehouse</h3>
+                    <div id="generalGrid" class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+                    <div id="emptyMarket" class="hidden text-center py-20 text-gray-400">
+                        <i class="fa-solid fa-boxes-stacked text-4xl mb-4"></i>
+                        <p>No products available from Vendors yet.</p>
+                        <p class="text-xs">Go to Vendor Portal and add products.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-myshop" class="tab-section hidden animate-fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-lg dark:text-white">My Inventory</h3>
+                    <button onclick="addCategory()" class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-lg text-sm font-bold dark:text-white hover:bg-gray-300"><i class="fa-solid fa-folder-plus mr-1"></i> New Category</button>
+                </div>
+                <div id="myShopGrid" class="space-y-6"></div>
+            </div>
+
+            <div id="section-active_orders" class="tab-section hidden animate-fade-in">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="font-bold text-lg dark:text-white">Active Orders</h3>
+                        <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold animate-pulse">● Live Sync</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-gray-5 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase"><tr><th class="p-4">Order ID</th><th class="p-4">Product</th><th class="p-4">Customer</th><th class="p-4">Status</th><th class="p-4">Amt. Due</th></tr></thead>
+                            <tbody id="activeOrdersTable" class="divide-y divide-gray-100 dark:divide-gray-700 dark:text-gray-300"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-wallet" class="tab-section hidden animate-fade-in">
+                <div class="bg-gradient-to-r from-[#0A2342] to-[#FFBF00] rounded-xl p-6 text-white shadow-lg mb-6">
+                    <p class="text-white/80 text-sm font-bold uppercase mb-1">Withdrawable Balance</p>
+                    <h2 class="text-4xl font-black mb-1">GHS <span id="walletBal">0.00</span></h2>
+                    <p class="text-xs text-white/60">Funds released 5 days after delivery.</p>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-4 border-b dark:border-gray-700 font-bold dark:text-white">Transaction History (BNE Fee 20% Deducted from Markup)</div>
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-gray-5 dark:bg-gray-700 dark:text-gray-300"><tr><th class="p-4">Date</th><th class="p-4">Item</th><th class="p-4">Customer Price</th><th class="p-4 text-red-500">BNE Fee (20%)</th><th class="p-4 text-green-500">Your Profit</th></tr></thead>
+                        <tbody id="walletTable" class="divide-y dark:divide-gray-700 dark:text-gray-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="section-team" class="tab-section hidden animate-fade-in">
+                <div class="flex justify-between items-center mb-6">
+                <div>
+                     <h3 class="font-bold text-xl dark:text-white">Sales Army</h3>
+                        <p class="text-xs text-gray-500">Manage your runners and sub-resellers.</p>
+                 </div>
+                     <button onclick="addTeamMember()" class="bg-brand-navy text-white px-4 py-2 rounded-lg font-bold shadow text-sm hover:bg-brand-blue">
+                        <i class="fa-solid fa-user-plus mr-2"></i> Add Runner
+                    </button>
+            </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="resellerTeamList">
+        </div>
+            </div>
+
+            <div id="section-settings" class="tab-section hidden animate-fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm relative overflow-hidden group">
+                        <div id="brandingLock" class="lock-overlay">
+                            <i class="fa-solid fa-lock text-2xl text-brand-navy mb-2"></i><span class="font-bold text-sm dark:text-white">Tier 2 Required</span>
+                        </div>
+                        <h3 class="font-bold mb-4 dark:text-white">Brand Identity</h3>
+                        <div class="space-y-4">
+                            <div><label class="text-xs text-gray-500">Shop Logo</label><input type="file" id="logoUpload" onchange="handleLogoUpload(this)" class="w-full text-sm mt-1"></div>
+                            <div><label class="text-xs text-gray-500">Theme Color</label><input type="color" class="w-full h-10 rounded cursor-pointer mt-1"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm relative overflow-hidden">
+                        <div id="domainLock" class="lock-overlay">
+                            <i class="fa-solid fa-lock text-2xl text-brand-navy mb-2"></i><span class="font-bold text-sm dark:text-white">Tier 3 Required</span>
+                        </div>
+                        <h3 class="font-bold mb-4 dark:text-white">Custom Domain</h3>
+                        <input type="text" placeholder="www.myshop.com" class="w-full p-2 border rounded mb-2 dark:bg-gray-700 dark:border-gray-600">
+                        <button class="bg-brand-navy text-white px-4 py-2 rounded text-sm w-full hover:bg-blue-900">Connect Domain</button>
+                    </div>
+
+                    <div class="bg-brand-blue/10 p-6 rounded-xl border border-brand-blue/30 col-span-1 md:col-span-2">
+                        <h3 class="font-bold text-brand-navy dark:text-brand-amber mb-2">Simulation: Switch Tier</h3>
+                        <div class="flex gap-2">
+                            <button onclick="setTier(1)" class="flex-1 py-3 bg-white dark:bg-gray-800 border border-brand-blue/20 rounded shadow-sm text-sm hover:bg-brand-blue hover:text-white transition">Tier 1 (Hustler)</button>
+                            <button onclick="setTier(2)" class="flex-1 py-3 bg-white dark:bg-gray-800 border border-brand-blue/20 rounded shadow-sm text-sm hover:bg-brand-blue hover:text-white transition">Tier 2 (Brand)</button>
+                            <button onclick="setTier(3)" class="flex-1 py-3 bg-white dark:bg-gray-800 border border-brand-blue/20 rounded shadow-sm text-sm hover:bg-brand-blue hover:text-white transition">Tier 3 (Mogul)</button>
+                        </div>
+                        <p class="text-center text-xs mt-2 text-gray-500">Tier 2 unlocks AI. Tier 3 unlocks Early Access & Domain.</p>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm col-span-1 md:col-span-2">
+                        <h3 class="font-bold mb-2 dark:text-white">Gemini API Key</h3>
+                        <div class="flex gap-2 mb-4">
+                            <input type="password" id="apiKeyInput" placeholder="Paste Key..." class="flex-1 p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm">
+                            <button onclick="saveApiKey()" class="bg-brand-amber text-brand-navy px-4 rounded font-bold hover:bg-yellow-400 text-sm">Save</button>
+                        </div>
+                        <button onclick="resetResellerData()" class="w-full py-2 bg-red-50 text-red-600 rounded font-bold shadow text-sm border border-red-200 hover:bg-red-100">⚠️ WIPE ALL DATA</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="importModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl p-6 border-t-4 border-brand-amber">
+            <h3 class="font-bold text-lg mb-4 dark:text-white">Add to My Shop</h3>
+            <div class="flex gap-3 mb-4">
+                <img id="impImg" src="" class="w-16 h-16 rounded object-cover bg-gray-100">
+                <div>
+                    <div id="impName" class="font-bold text-sm dark:text-white">--</div>
+                    <div class="text-xs text-gray-500">Base Price: GHS <span id="impBase">0</span></div>
+                    <div class="text-[10px] bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded inline-block mt-1">Vol: <span id="impVolDisplay">15</span></div>
+                </div>
+            </div>
+            
+            <div class="bg-gray-5 dark:bg-gray-800 p-4 rounded-lg mb-4 border border-brand-navy/10">
+                <label class="text-xs font-bold text-brand-navy dark:text-brand-amber block mb-1">My Profit Margin (GHS)</label>
+                <input type="number" id="impProfit" value="20" class="w-full p-2 border rounded text-lg font-bold text-center dark:bg-gray-700 dark:text-white dark:border-gray-600" oninput="calcFinal()">
+                <div class="text-center mt-2 text-sm text-gray-500">
+                    Default Selling Price: <strong class="text-green-600">GHS <span id="impFinal">0</span></strong>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="text-xs font-bold text-gray-500 block mb-1">Category</label>
+                <select id="impCat" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <option value="General">General</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Fashion">Fashion</option>
+                </select>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="document.getElementById('importModal').classList.add('hidden')" class="flex-1 py-2 bg-gray-100 dark:bg-gray-700 rounded font-bold">Cancel</button>
+                <button onclick="confirmImport()" class="flex-1 py-2 bg-brand-navy text-white rounded font-bold hover:bg-blue-900">Add to Shop</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sellModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl p-6 border-t-4 border-green-500">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="font-bold text-lg dark:text-white">Place Customer Order</h3>
+                    <div id="sellItemName" class="text-sm text-brand-amber font-bold">--</div>
+                </div>
+                <button onclick="document.getElementById('sellModal').classList.add('hidden')" class="text-gray-400"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            
+            <div class="space-y-3">
+    <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between text-xs font-bold text-gray-400 mb-1">
+            <span>REGION DETECT</span>
+            <span id="regionBadge" class="text-brand-navy dark:text-brand-amber">LOCAL (GH)</span>
+        </div>
+        <input type="tel" id="oPhone" placeholder="Enter Phone (+233...)" class="w-full p-2 bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-brand-amber outline-none font-mono text-lg dark:text-white" oninput="handleSmartPhoneInput(this.value)">
+    </div>
+
+    <div>
+        <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Customer</label>
+        <input type="text" id="oCustomer" placeholder="Name" class="w-full p-2 rounded border text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white mb-2">
+        
+        <div class="relative">
+            <input type="text" id="oLoc" placeholder="Delivery Area (e.g. East Legon)" class="w-full p-2 rounded border text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white pr-8">
+            <i id="addrStatusIcon" class="fa-solid fa-map-pin absolute right-3 top-3 text-gray-400"></i>
+        </div>
+        <p id="addrHint" class="text-[10px] text-gray-400 mt-1 italic">Rider will capture precise "Blue Kiosk" landmark upon delivery.</p>
+    </div>
+
+    <div class="flex gap-3">
+        <div class="flex-1">
+            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Zone</label>
+            <select id="sellZone" onchange="updateOrderSummary()" class="w-full p-2 border rounded text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                <option value="15">Zone A (Nearby)</option>
+                <option value="25" selected>Zone B (City Core)</option>
+                <option value="45">Zone C (Outskirts)</option>
+                <option value="60">Zone D (Regional)</option>
+                <option value="150" id="optExport" class="hidden">🌍 Export Rate</option>
+            </select>
+        </div>
+        <div class="w-20">
+            <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Qty</label>
+            <input type="number" id="sellQty" value="1" min="1" class="w-full p-2 border rounded text-sm font-bold text-center dark:bg-gray-800 dark:border-gray-600 dark:text-white" oninput="updateOrderSummary()">
+        </div>
+    </div>
+
+    <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
+        <label class="text-[10px] font-bold text-brand-navy dark:text-blue-300 uppercase block mb-1">Your Markup (Profit)</label>
+        <div class="flex items-center gap-2">
+            <span class="text-gray-500 text-sm">GHS</span>
+            <input type="number" id="sellProfitInput" value="0" class="w-full p-1 bg-transparent border-b border-blue-300 font-bold text-lg text-brand-navy dark:text-white focus:outline-none" oninput="updateOrderSummary()">
+        </div>
+    </div>
+
+    <div>
+        <label class="text-[10px] font-bold text-gray-500 uppercase block mb-1">Payment</label>
+        <div class="flex gap-2">
+            <label class="flex-1 cursor-pointer">
+                <input type="radio" name="payMethod" value="COD" class="peer hidden" checked onchange="updateOrderSummary()">
+                <div class="p-2 border rounded text-center text-xs font-bold peer-checked:bg-brand-navy peer-checked:text-white dark:peer-checked:bg-brand-amber dark:peer-checked:text-brand-navy transition">COD</div>
+            </label>
+            <label class="flex-1 cursor-pointer">
+                <input type="radio" name="payMethod" value="Momo" class="peer hidden" onchange="updateOrderSummary()">
+                <div class="p-2 border rounded text-center text-xs font-bold peer-checked:bg-green-600 peer-checked:text-white transition">Momo</div>
+            </label>
+        </div>
+    </div>
+
+    <div class="border-t pt-3 mt-2 space-y-1 text-sm" id="orderBreakdown"></div>
+</div>
+
+            <button onclick="confirmSell()" class="w-full mt-4 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 shadow-lg">Confirm Order</button>
+        </div>
+    </div>
+
+    <div id="captionModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6">
+            <div class="flex justify-between items-center mb-4"><h3 class="font-bold dark:text-white"><i class="fa-solid fa-wand-magic-sparkles text-brand-amber"></i> Viral Caption Writer</h3><button onclick="document.getElementById('captionModal').classList.add('hidden')" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button></div>
+            <div id="captionOutput" class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-sm mb-4 min-h-[100px] whitespace-pre-wrap dark:text-white">Thinking...</div>
+            <button onclick="document.execCommand('copy'); showToast('Copied!')" class="w-full py-2 bg-brand-navy text-white rounded font-bold hover:bg-blue-900">Copy Text</button>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div id="confirmModal" class="fixed inset-0 z-[110] bg-black/60 hidden flex items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 w-full max-w-xs rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-lg font-bold dark:text-white mb-2">Confirm Action</h3>
+            <p id="confirmMessage" class="text-sm text-gray-600 dark:text-gray-400 mb-6"></p>
+            <div class="flex gap-3">
+                <button id="confirmCancelBtn" class="flex-1 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg font-bold">Cancel</button>
+                <button id="confirmYesBtn" class="flex-1 py-2 bg-brand-navy text-white rounded-lg font-bold">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM INPUT MODAL -->
+    <div id="inputModal" class="fixed inset-0 z-[110] bg-black/60 hidden flex items-center justify-center p-6 backdrop-blur-sm">
+        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 w-full max-w-xs rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-lg font-bold dark:text-white mb-2" id="inputTitle">Input Required</h3>
+            <input type="text" id="inputField" class="w-full p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-white mb-6" autofocus>
+            <div class="flex gap-3">
+                <button id="inputCancelBtn" class="flex-1 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-lg font-bold">Cancel</button>
+                <button id="inputYesBtn" class="flex-1 py-2 bg-brand-navy text-white rounded-lg font-bold">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+function getExpandedCountries() {
+    const base = ['GH', 'NG', 'US'];
+    const custom = JSON.parse(localStorage.getItem('balnova_custom_regions')) || {};
+    const customCodes = Object.keys(custom);
+    return [...new Set([...base, ...customCodes])];
+}
+        const PLATFORM_FEE_RATE = 0.20; 
+       let myResellerTeam  = safeParse('balnova_reseller_team', []);
+        let vendorInventory = safeParse('balnova_inventory', []);
+        let myShop          = safeParse('balnova_reseller_shop', []);
+        let myWallet        = safeParse('balnova_reseller_wallet_GH', []); // Default load
+        let myOrders        = safeParse('balnova_reseller_orders', []);
+        let myBrand         = safeParse('balnova_reseller_brand', { logo: null });
+        let myCredits       = parseInt(localStorage.getItem('balnova_reseller_credits')) || 0;
+        let myTier          = parseInt(localStorage.getItem('balnova_reseller_tier')) || 1;
+        let apiKey          = localStorage.getItem('gemini_api_key') || "";
+        let currentImport = null;
+        let currentSellItem = null;
+
+        // --- HELPER: SAFE PARSER ---
+function safeParse(key, defaultValue) {
+    try {
+        const item = localStorage.getItem(key);
+        // If item doesn't exist or is "undefined"/"null" string, return default
+        if (!item || item === "undefined" || item === "null") {
+            return defaultValue;
+        }
+        return JSON.parse(item);
+    } catch (e) {
+        console.warn(`Data corrupted for ${key}. Resetting to default.`);
+        return defaultValue;
+    }
+}
+        // --- CUSTOM MODAL HELPERS ---
+        function showConfirmModal(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const msg = document.getElementById('confirmMessage');
+                const yes = document.getElementById('confirmYesBtn');
+                const no = document.getElementById('confirmCancelBtn');
+                
+                msg.innerText = message;
+                modal.classList.remove('hidden');
+                
+                const close = (result) => {
+                    modal.classList.add('hidden');
+                    yes.onclick = null;
+                    no.onclick = null;
+                    resolve(result);
+                };
+                
+                yes.onclick = () => close(true);
+                no.onclick = () => close(false);
+            });
+        }
+
+        function showInputModal(title, defaultValue = "") {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('inputModal');
+                const titleEl = document.getElementById('inputTitle');
+                const inputEl = document.getElementById('inputField');
+                const yes = document.getElementById('inputYesBtn');
+                const no = document.getElementById('inputCancelBtn');
+                
+                titleEl.innerText = title;
+                inputEl.value = defaultValue;
+                modal.classList.remove('hidden');
+                inputEl.focus();
+                
+                const close = (result) => {
+                    modal.classList.add('hidden');
+                    yes.onclick = null;
+                    no.onclick = null;
+                    resolve(result);
+                };
+                
+                yes.onclick = () => close(inputEl.value);
+                no.onclick = () => close(null);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if(localStorage.getItem('reseller_theme')==='dark') document.documentElement.classList.add('dark');
+            setTier(myTier); loadData(); updateBranding();
+            
+            setInterval(syncSystem, 10000);
+            
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            new Chart(ctx, { type: 'line', data: { labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], datasets: [{ label: 'Sales (GHS)', data: [0, 50, 150, 100, 250, 400, 300], borderColor: '#FFBF00', backgroundColor: 'rgba(255, 191, 0, 0.1)', tension: 0.4, fill: true }] }, options: { responsive: true, maintainAspectRatio: false } });
+        });
+
+        function loadData() {
+    // vendorInventory = JSON.parse(localStorage.getItem('balnova_inventory')) || []; 
+    vendorInventory = safeParse('balnova_inventory', []);
+    myShop          = safeParse('balnova_reseller_shop', []);
+    myOrders        = safeParse('balnova_reseller_orders', []);
+    
+    // Handle the Regional Wallet logic safely
+    const region = localStorage.getItem('balnova_active_region') || 'GH';
+    myWallet = safeParse(`balnova_reseller_wallet_${region}`, []);
+    
+    // Handle simple values (Integers/Strings)
+    myCredits = parseInt(localStorage.getItem('balnova_reseller_credits')) || 0;
+    
+    // Make sure we parse the Brand object safely too
+    myBrand = safeParse('balnova_reseller_brand', { logo: null });
+
+    // Render the UI
+    renderMarketplace(); 
+    renderMyShop(); 
+    renderWallet(); 
+    renderActiveOrders(); 
+    updateCreditsUI();
+}
+        // --- CONFIGURATION ---
+const EXPANDED_COUNTRIES = ['GH', 'NG', 'US']; // Countries we officially serve
+// --- 1. SMART PHONE INPUT HANDLER ---
+function handleSmartPhoneInput(val) {
+    let region = 'GH';
+    const cleanVal = val.trim();
+
+    // 1. Load Custom Regions from Admin Storage
+    const customRegions = JSON.parse(localStorage.getItem('balnova_custom_regions')) || {};
+    
+    // 2. Universal Scan: Check if phone matches ANY known region's prefix
+    // (Assumes you saved a 'prefix' field in Block 1, or we define common ones here)
+    
+    // Base defaults
+    const prefixMap = {
+        '+233': 'GH', '05': 'GH', '02': 'GH',
+        '+234': 'NG', '080': 'NG', '081': 'NG',
+        '+1': 'US'
+    };
+
+    // Merge Custom Region Prefixes
+    // If you haven't added 'prefix' to Block 1 yet, this loop prepares for it.
+    Object.values(customRegions).forEach(r => {
+        if(r.prefix) prefixMap[r.prefix] = r.id;
+    });
+
+    // 3. Find Match
+    // We sort prefixes by length (descending) to match "+234" before "+2"
+    const sortedPrefixes = Object.keys(prefixMap).sort((a,b) => b.length - a.length);
+    
+    for (const p of sortedPrefixes) {
+        if (cleanVal.startsWith(p)) {
+            region = prefixMap[p];
+            break;
+        }
+    }
+
+    const badge = document.getElementById('regionBadge');
+    const zoneSel = document.getElementById('sellZone');
+    const exportOpt = document.getElementById('optExport');
+    
+    const allowedRegions = getExpandedCountries(); // dynamic permission list
+
+    if (region !== 'GH') {
+        if (allowedRegions.includes(region)) {
+            badge.innerText = `EXPORT: ${region} 🌍`;
+            badge.className = "text-green-500 font-bold animate-pulse";
+            exportOpt.classList.remove('hidden');
+            exportOpt.innerText = `🌍 Export to ${region} (Rate)`;
+            zoneSel.value = "150";
+        } else {
+            badge.innerText = `NOT SUPPORTED (${region})`;
+            badge.className = "text-red-500 font-bold";
+        }
+    } else {
+        badge.innerText = "LOCAL (GH)";
+        badge.className = "text-brand-navy dark:text-brand-amber";
+        exportOpt.classList.add('hidden');
+        if(zoneSel.value === "150") zoneSel.value = "25";
+    }
+
+    // B. Lookup Verified Address
+    if(val.length >= 10) lookupVerifiedAddress(val);
+}
+
+function lookupVerifiedAddress(phone) {
+    const region = localStorage.getItem('balnova_active_region') || 'GH';
+    const dbKey = `balnova_customers_${region}`;
+    const db = JSON.parse(localStorage.getItem(dbKey)) || {};
+    const profile = db[phone];
+
+    if (profile) {
+        document.getElementById('oCustomer').value = profile.name;
+        
+        // Check for verified address
+        const verifiedAddr = profile.addresses.find(a => a.verified);
+        const locInput = document.getElementById('oLoc');
+        const hint = document.getElementById('addrHint');
+        const icon = document.getElementById('addrStatusIcon');
+
+        if (verifiedAddr) {
+            // AUTO-FILL & LOCK
+            locInput.value = verifiedAddr.tag; // e.g. "Home (Blue Kiosk)"
+            locInput.disabled = true; // User shouldn't edit a verified pin
+            locInput.classList.add('bg-green-50', 'text-green-700', 'border-green-300');
+            
+            hint.innerHTML = `<span class="text-green-600 font-bold"><i class="fa-solid fa-check-circle"></i> Verified Anchor: ${verifiedAddr.rawString}</span>`;
+            icon.className = "fa-solid fa-lock text-green-500";
+        } else {
+            // New/Unverified
+            locInput.disabled = false;
+            locInput.classList.remove('bg-green-50', 'text-green-700', 'border-green-300');
+            hint.innerText = "Rider will verify exact location upon arrival.";
+            icon.className = "fa-solid fa-map-pin text-gray-400";
+        }
+    }
+}
+
+// --- 3. TEAM MANAGEMENT LOGIC ---
+function renderTeam() {
+    const list = document.getElementById('resellerTeamList');
+    if(!list) return;
+    
+    list.innerHTML = '';
+    if(myResellerTeam.length === 0) {
+        list.innerHTML = '<div class="col-span-full text-center text-gray-400 py-4 text-xs">No runners. Build your empire.</div>';
+        return;
+    }
+
+    myResellerTeam.forEach((member, idx) => {
+        list.innerHTML += `
+            <div class="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-brand-amber text-brand-navy rounded-full flex items-center justify-center font-bold text-xs">${member.name.charAt(0)}</div>
+                    <div>
+                        <div class="font-bold text-sm dark:text-white">${member.name}</div>
+                        <div class="text-[10px] text-gray-500">Sales: GHS ${member.sales || 0}</div>
+                    </div>
+                </div>
+                <button onclick="removeTeamMember(${idx})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        `;
+    });
+}
+
+async function addTeamMember() {
+    if(myTier < 3) return showToast("Upgrade to Tier 3 to build a team!", "error");
+    
+    const name = await showInputModal("Runner Name:");
+    if(name) {
+        myResellerTeam.push({ name: name, sales: 0, role: "Runner" });
+        // Correct Key:
+        localStorage.setItem('balnova_reseller_team', JSON.stringify(myResellerTeam)); 
+        renderTeam();
+        showToast("Sales Runner Added");
+    }
+}
+function removeTeamMember(idx) {
+    if(confirm("Fire this runner?")) {
+        myResellerTeam.splice(idx, 1);
+        localStorage.setItem('svc_team', JSON.stringify(myResellerTeam));
+        renderTeam();
+    }
+}
+
+         function syncSystem() {
+            const freshInvStr = localStorage.getItem('balnova_inventory');
+            if(freshInvStr && freshInvStr !== JSON.stringify(vendorInventory)) {
+                vendorInventory = JSON.parse(freshInvStr);
+                renderMarketplace();
+            }
+
+            const vendorOrders = JSON.parse(localStorage.getItem('balnova_vendor_orders')) || [];
+            const riderProgress = JSON.parse(localStorage.getItem('balnova_rider_progress'));
+            
+            let changed = false;
+            
+            myOrders.forEach(order => {
+                let newStatus = order.status;
+                
+                if(order.status.includes("Delivered") || order.status.includes("Failed")) return;
+                const vOrder = vendorOrders.find(v => v.id === order.id);
+                if (vOrder && vOrder.status !== order.status) {
+                    newStatus = vOrder.status;
+                }
+
+                if (riderProgress && riderProgress.stops) {
+                    const stop = riderProgress.stops.find(s => s.note.includes(order.id));
+                    if (stop) {
+                        if (stop.status === 'pending' && !newStatus.includes("En Route")) newStatus = "Rider En Route";
+                        if (stop.status === 'done') newStatus = "Delivered (Funds Pending)";
+                        if (stop.status === 'failed') newStatus = "Delivery Failed";
+                    }
+                }
+                if(newStatus !== order.status) {
+                    order.status = newStatus;
+                    changed = true;
+                }
+            });
+
+            if(changed) {
+                localStorage.setItem('balnova_reseller_orders', JSON.stringify(myOrders));
+                renderActiveOrders();
+            }
+        }
+
+        // --- BRANDING (TIER 2 OPTIONAL) ---
+        function handleLogoUpload(input) {
+            if(input.files && input.files[0]) {
+                const r = new FileReader();
+                r.onload = e => {
+                    myBrand.logo = e.target.result;
+                    localStorage.setItem('balnova_reseller_brand', JSON.stringify(myBrand));
+                    updateBranding();
+                    showToast("Logo Updated!");
+                };
+                r.readAsDataURL(input.files[0]);
+            }
+        }
+        function updateBranding() {
+            const area = document.getElementById('shopBrandArea');
+            if(myBrand.logo && myTier >= 2) {
+                area.innerHTML = `<img src="${myBrand.logo}" class="w-full h-full object-cover">`;
+                area.classList.remove('border-brand-amber');
+            } else {
+                area.innerHTML = `<i class="fa-solid fa-store text-3xl text-brand-amber"></i>`;
+                area.classList.add('border-brand-amber');
+            }
+        }
+
+        // --- TIER LOGIC ---
+        // --- FIXED TIER LOGIC (Visually Toggles Team Tab) ---
+// --- FIXED TIER LOGIC (Overrides CSS Conflicts) ---
+function setTier(t) {
+    myTier = t; 
+    localStorage.setItem('balnova_reseller_tier', t);
+    
+    // 1. Update Badge UI
+    const badge = document.getElementById('tierBadge');
+    const tiers = {1: 'TIER 1 (HUSTLER)', 2: 'TIER 2 (BRAND)', 3: 'TIER 3 (MOGUL)'};
+    if(badge) {
+        badge.innerText = tiers[t];
+        // Re-apply classes
+        badge.className = `absolute -top-1 -right-1 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm ${t===3 ? 'bg-yellow-400 text-black' : 'bg-brand-amber text-brand-navy'}`;
+    }
+
+    // 2. Manage Locks (FORCE INLINE STYLES)
+    // We utilize an array to handle all locks cleanly
+    const locks = [
+        { id: 'marketPulseLock', min: 2 },
+        { id: 'shopAnalystLock', min: 2 },
+        { id: 'brandingLock', min: 2 },
+        { id: 'domainLock', min: 3 }
+    ];
+
+    locks.forEach(item => {
+        const el = document.getElementById(item.id);
+        if (el) {
+            if (t >= item.min) {
+                el.style.display = 'none'; // <--- CRITICAL FIX: Force hide
+                el.classList.add('hidden'); 
+            } else {
+                el.style.display = 'flex'; // <--- CRITICAL FIX: Restore layout
+                el.classList.remove('hidden');
+            }
+        }
+    });
+
+    // 3. Team Tab Visibility
+    const teamBtn = document.getElementById('nav-team');
+    if(teamBtn) {
+        if (t >= 3) teamBtn.classList.remove('hidden');
+        else teamBtn.classList.add('hidden');
+    }
+
+    // 4. Bonus Credits for Upgrading
+    if(t >= 2 && myCredits === 0) { 
+        myCredits = 50; 
+        updateCreditsUI(); 
+    }
+
+    loadData();
+    console.log(`✅ Tier Switched to ${t}. Locks updated.`);
+}
+
+        // --- MARKETPLACE LOGIC ---
+        function renderMarketplace() {
+            const vipGrid = document.getElementById('vipGrid'); const genGrid = document.getElementById('generalGrid');
+            vipGrid.innerHTML = ''; genGrid.innerHTML = '';
+            
+            if(vendorInventory.length === 0) { document.getElementById('emptyMarket').classList.remove('hidden'); return; }
+            document.getElementById('emptyMarket').classList.add('hidden');
+
+            const now = Date.now();
+            const TWO_HOURS = 2 * 60 * 60 * 1000;
+
+            vendorInventory.forEach(p => {
+                let isNew = false;
+                if (typeof p.id === 'number' && p.id > 1700000000000) {
+                isNew = (now - p.id) < TWO_HOURS;
+            }                const img = (p.images && p.images[0]) ? p.images[0] : 'https://via.placeholder.com/150';
+                const vol = p.volume || 2;
+                const stock = p.baseStock || 0;
+                
+                const isOOS = stock <= 0;
+                const opacityClass = isOOS ? "opacity-50 grayscale" : "";
+                const stockLabel = isOOS ? "<span class='absolute top-2 left-2 bg-red-600 text-white text-[10px] px-2 py-1 rounded font-bold'>SOLD OUT</span>" : "";
+                const volBadge = `<span class="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">Vol: ${vol}</span>`;
+                
+                let cardHtml = `
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700 relative group ${opacityClass}">
+                        ${volBadge}
+                        ${stockLabel}
+                        <img src="${img}" class="w-full h-40 object-cover">
+                        <div class="p-3">
+                            <h4 class="font-bold text-sm truncate dark:text-white">${p.name}</h4>
+                            <div class="text-xs text-gray-500 mb-2">Base: GHS ${p.price}</div>
+                            <button onclick="openImport(${p.id})" ${isOOS ? 'disabled' : ''} class="w-full py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-bold hover:bg-brand-navy hover:text-white transition disabled:cursor-not-allowed">
+                                ${isOOS ? 'Out of Stock' : 'Import to Shop'}
+                            </button>
+                        </div>
+                `;
+
+                if (isNew) {
+                    if (myTier < 3) { 
+                        cardHtml = `
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700 relative group">
+                                <div class="relative">
+                                    <img src="${img}" class="w-full h-40 object-cover blur-sm">
+                                    <div class="countdown-overlay">
+                                        <i class="fa-solid fa-lock text-2xl mb-1 text-brand-amber"></i>
+                                        <span>Unlocks in 2h</span>
+                                        <span class="text-[10px] opacity-70 font-normal">Tier 3 Early Access</span>
+                                    </div>
+                                </div>
+                                <div class="p-3 opacity-50">
+                                    <h4 class="font-bold text-sm truncate dark:text-white">${p.name}</h4>
+                                    <div class="text-xs text-gray-500 mb-2">Base: GHS ${p.price}</div>
+                                    <button disabled class="w-full py-1.5 bg-gray-200 rounded text-xs font-bold cursor-not-allowed">Locked</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    vipGrid.innerHTML += cardHtml;
+                } else {
+                    cardHtml += `</div>`;
+                    genGrid.innerHTML += cardHtml;
+                }
+            });
+        }
+
+        // --- IMPORT LOGIC ---
+        function openImport(id) { 
+            currentImport = vendorInventory.find(p => p.id === id); 
+            if(!currentImport) return; 
+            document.getElementById('impName').innerText = currentImport.name; 
+            document.getElementById('impBase').innerText = currentImport.price; 
+            document.getElementById('impVolDisplay').innerText = currentImport.volume || 2; 
+            document.getElementById('impImg').src = (currentImport.images && currentImport.images[0]) ? currentImport.images[0] : ''; 
+            document.getElementById('impProfit').value = 20; 
+            calcFinal(); 
+            document.getElementById('importModal').classList.remove('hidden'); 
+        }
+        function calcFinal() { const base = currentImport.price; const profit = parseFloat(document.getElementById('impProfit').value) || 0; document.getElementById('impFinal').innerText = (base + profit).toFixed(2); }
+        function confirmImport() { const profit = parseFloat(document.getElementById('impProfit').value) || 0; const cat = document.getElementById('impCat').value; const shopItem = { ...currentImport, myProfit: profit, price: currentImport.price, sellingPrice: currentImport.price + profit, myCategory: cat, importedAt: Date.now() }; myShop.unshift(shopItem); localStorage.setItem('balnova_reseller_shop', JSON.stringify(myShop)); document.getElementById('importModal').classList.add('hidden'); showToast("Added to your Shop!"); renderMyShop(); }
+
+        // --- MY SHOP & POS LOGIC ---
+        function renderMyShop() {
+            const grid = document.getElementById('myShopGrid');
+            grid.innerHTML = '';
+            
+            const cats = [...new Set(myShop.map(i => i.myCategory))];
+            
+            cats.forEach(cat => {
+                const items = myShop.filter(i => i.myCategory === cat);
+                let html = `<div class="mb-6"><h4 class="font-bold text-gray-500 uppercase text-xs mb-3 border-b pb-1">${cat}</h4><div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">`;
+                
+                items.forEach((p, idx) => {
+                    const img = (p.images && p.images[0]) ? p.images[0] : '';
+                    html += `
+                        <div class="flex gap-3 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 relative">
+                            <span class="absolute top-1 right-1 bg-gray-100 dark:bg-gray-700 text-[9px] px-1 rounded text-gray-500">V:${p.volume||2}</span>
+                            <img src="${img}" class="w-16 h-16 rounded object-cover">
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-sm truncate dark:text-white">${p.name}</div>
+                                <div class="text-xs text-green-600 font-bold">Profit: GHS ${p.myProfit}</div>
+                                <div class="text-xs text-gray-400">Sell: GHS ${p.sellingPrice}</div>
+                                <div class="flex gap-2 mt-2">
+                                    <button onclick="openSellModal(${idx})" class="flex-1 text-[10px] bg-green-100 text-green-700 px-2 py-1.5 rounded font-bold hover:bg-green-200 transition">Sell</button>
+                                    <button onclick="genCaption('${p.name}', ${p.sellingPrice})" class="text-[10px] bg-brand-navy/10 text-brand-navy px-2 py-1 rounded hover:bg-brand-navy hover:text-white transition"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+                grid.innerHTML += html;
+            });
+        }
+
+        // --- DIRECT SELL LOGIC (POS WITH PHYSICS PRICING) ---
+        function openSellModal(idx) {
+            currentSellItem = myShop[idx];
+            if(!currentSellItem) return;
+            
+            document.getElementById('sellItemName').innerText = currentSellItem.name;
+            document.getElementById('sellProfitInput').value = currentSellItem.myProfit;
+            document.getElementById('sellQty').value = 1;
+            
+            updateOrderSummary();
+            document.getElementById('sellModal').classList.remove('hidden');
+        }
+
+        function updateOrderSummary() {
+            if(!currentSellItem) return;
+
+            // 1. Inputs
+            const qty = parseInt(document.getElementById('sellQty').value) || 1;
+            const myProfitUnit = parseFloat(document.getElementById('sellProfitInput').value) || 0;
+            const zoneBase = parseFloat(document.getElementById('sellZone').value);
+            const method = document.querySelector('input[name="payMethod"]:checked').value;
+            
+            // 2. Physics / Volume Calculation
+            const volPerItem = currentSellItem.volume || 2; 
+            const totalVol = volPerItem * qty;
+            const trips = Math.ceil(totalVol / 100); // 100 Vol units per bike
+            
+            // 3. Handling Fee Logic (Tiered)
+            let perItemHandling = 1;
+            if (volPerItem > 5 && volPerItem <= 20) perItemHandling = 4;
+            if (volPerItem > 20) perItemHandling = 7;
+            const totalHandling = perItemHandling * qty;
+            
+            // 4. Total Delivery Fee
+            const totalDeliveryFee = (zoneBase * trips) + totalHandling;
+
+            // 5. Totals
+            const vendorBaseTotal = currentSellItem.price * qty;
+            const resellerProfitTotal = myProfitUnit * qty;
+            const totalProductCost = vendorBaseTotal + resellerProfitTotal;
+            const grandTotal = totalProductCost + totalDeliveryFee;
+
+            // UI Update
+            const breakdown = document.getElementById('orderBreakdown');
+            const tripMsg = trips > 1 ? `<span class="text-red-500 font-bold ml-1">(${trips} Trips)</span>` : '';
+            
+            if (method === 'COD') {
+                breakdown.innerHTML = `
+                    <div class="flex justify-between text-gray-500"><span>Vendor Price (${qty}x)</span><span>GHS ${vendorBaseTotal.toFixed(2)}</span></div>
+                    
+                    <div class="flex justify-between text-gray-500"><span>Gross Profit</span><span>GHS ${resellerProfitTotal.toFixed(2)}</span></div>
+                    <div class="flex justify-between text-red-400 text-xs"><span>Commission (20%)</span><span>- GHS ${(resellerProfitTotal * 0.2).toFixed(2)}</span></div>
+                    <div class="flex justify-between text-green-600 font-bold border-t border-dashed pt-1"><span>Net Profit</span><span>+ GHS ${(resellerProfitTotal * 0.8).toFixed(2)}</span></div>
+
+                    <div class="flex justify-between text-gray-500 border-t border-dashed mt-1 pt-1"><span>Delivery Base${tripMsg}</span><span>GHS ${(zoneBase*trips).toFixed(2)}</span></div>
+                    <div class="flex justify-between text-gray-500"><span>Handling Fee</span><span>GHS ${totalHandling.toFixed(2)}</span></div>
+                    <div class="flex justify-between font-bold text-brand-navy dark:text-brand-amber text-lg mt-2 pt-2 border-t border-double">
+                        <span>Customer Pays</span>
+                        <span>GHS ${grandTotal.toFixed(2)}</span>
+                    </div>
+                    <p class="text-xs text-right text-red-500 font-bold mt-1">Rider collects cash. Profit credited after delivery.</p>
+                `;
+            } else {
+                breakdown.innerHTML = `
+                    <div class="flex justify-between text-gray-500"><span>Vendor Price (${qty}x)</span><span>GHS ${vendorBaseTotal.toFixed(2)}</span></div>
+                    
+                    <div class="flex justify-between text-gray-500"><span>Gross Profit</span><span>GHS ${resellerProfitTotal.toFixed(2)}</span></div>
+                    <div class="flex justify-between text-red-400 text-xs"><span>Commission (20%)</span><span>- GHS ${(resellerProfitTotal * 0.2).toFixed(2)}</span></div>
+                    <div class="flex justify-between text-green-600 font-bold border-t border-dashed pt-1"><span>Net Profit</span><span>+ GHS ${(resellerProfitTotal * 0.8).toFixed(2)}</span></div>
+
+                    <div class="flex justify-between text-gray-500 mt-1"><span>Delivery Fee</span><span>GHS ${totalDeliveryFee.toFixed(2)}</span></div>
+                    <div class="flex justify-between font-bold text-brand-navy dark:text-brand-amber text-lg mt-2 pt-2 border-t border-double">
+                        <span>Customer Pays</span>
+                        <span>GHS ${grandTotal.toFixed(2)}</span>
+                    </div>
+                    <p class="text-xs text-right text-green-500 font-bold mt-1">Prepaid via Momo.</p>
+                `;
+            }
+        }
+function detectRegionFromPhone(phone) {
+    const p = phone.trim();
+    const myRegion = localStorage.getItem('balnova_active_region') || 'GH';
+    
+    // Check prefixes
+    if(p.startsWith('+234') || p.startsWith('080') || p.startsWith('081')) return { dest: 'NG', isExport: true };
+    if(p.startsWith('+1')) return { dest: 'US', isExport: true };
+    
+    // Default to local
+    return { dest: myRegion, isExport: false };
+}
+function confirmSell() {
+            // 1. Inputs
+            const custName = document.getElementById('oCustomer').value;
+            const custPhone = document.getElementById('oPhone').value;
+            const custLoc = document.getElementById('oLoc').value;
+            const qty = parseInt(document.getElementById('sellQty').value) || 1;
+            
+            if(!custName || !custPhone || !custLoc) return showToast("Enter Customer Details", "error");
+            if(qty <= 0) return showToast("Invalid Quantity", "error");
+
+            // 2. STOCK SAFETY CHECK (Concurrency Fix)
+            // Re-read inventory immediately before writing to prevent race conditions
+            const liveInventory = JSON.parse(localStorage.getItem('balnova_inventory')) || [];
+            const liveProductIdx = liveInventory.findIndex(x => x.name === currentSellItem.name);
+            
+            if (liveProductIdx === -1) return showToast("Product removed by Vendor!", "error");
+            if ((liveInventory[liveProductIdx].baseStock || 0) < qty) return showToast("Stock changed! Insufficient qty.", "error");
+            
+            // 3. Determine Region
+            const routing = detectRegionFromPhone(custPhone);
+            const txRegion = routing.dest || localStorage.getItem('balnova_active_region') || 'GH';
+
+            // 4. Deduct Stock & Commit
+            liveInventory[liveProductIdx].baseStock -= qty;
+            localStorage.setItem('balnova_inventory', JSON.stringify(liveInventory));
+            vendorInventory = liveInventory; // Sync local memory
+
+            // 5. Financials
+            const myProfitUnit = parseFloat(document.getElementById('sellProfitInput').value) || 0;
+            const zoneBase = parseFloat(document.getElementById('sellZone').value);
+            
+            // Calculate Handling
+            const volPerItem = currentSellItem.volume || 2; 
+            const totalVol = volPerItem * qty;
+            const trips = Math.ceil(totalVol / 100);
+            
+            let perItemHandling = 1;
+            if (volPerItem > 5 && volPerItem <= 20) perItemHandling = 4;
+            if (volPerItem > 20) perItemHandling = 7;
+            const totalHandling = perItemHandling * qty;
+            const totalDeliveryFee = (zoneBase * trips) + totalHandling;
+            
+            const method = document.querySelector('input[name="payMethod"]:checked').value;
+            const totalResellerProfit = myProfitUnit * qty;
+            const totalSale = (currentSellItem.price * qty) + totalResellerProfit;
+            
+            // USE CONSTANT
+            const bneFee = totalResellerProfit * PLATFORM_FEE_RATE; 
+
+            // 6. SAVE TO REGIONAL WALLET
+            const walletKey = `balnova_reseller_wallet_${txRegion}`;
+            let regionWallet = JSON.parse(localStorage.getItem(walletKey)) || [];
+            
+            const walletDeduction = method !== 'COD' ? totalDeliveryFee : 0;
+            
+            // Credit Profit
+            regionWallet.unshift({ 
+                date: new Date().toLocaleDateString(), 
+                desc: `Sold: ${currentSellItem.name} (x${qty})`, 
+                amount: totalResellerProfit - bneFee, 
+                fee: bneFee, 
+                salePrice: totalSale, 
+                status: method === "COD" ? "Pending (Rider Collection)" : "Pending (5 Days)" 
+            });
+            
+            // Deduct Delivery
+            if(walletDeduction > 0) {
+                regionWallet.unshift({
+                    date: new Date().toLocaleDateString(),
+                    desc: `Prepaid Delivery: ${currentSellItem.name}`,
+                    amount: -walletDeduction,
+                    status: "Paid"
+                });
+            }
+            
+            localStorage.setItem(walletKey, JSON.stringify(regionWallet));
+            myWallet = regionWallet;
+
+            // 7. Create Local Order Record
+            const orderId = `RES-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            const fullAddress = `${custLoc} (Zone Fee: ${totalDeliveryFee})`;
+
+            myOrders.unshift({ 
+                id: orderId, 
+                item: `${currentSellItem.name} (x${qty})`, 
+                customer: custName, 
+                profit: totalResellerProfit - bneFee, 
+                status: "Processing (Vendor Packing)", 
+                timestamp: Date.now(),
+                region: txRegion
+            });
+            localStorage.setItem('balnova_reseller_orders', JSON.stringify(myOrders));
+            
+            // 8. Push to Admin Queue (Regional)
+            const adminKey = `balnova_admin_queue_${txRegion}`;
+            let adminQueue = JSON.parse(localStorage.getItem(adminKey)) || [];
+            
+            adminQueue.push({ 
+                id: orderId, 
+                type: routing.isExport ? 'Export' : 'Delivery', 
+                item: `${currentSellItem.name} (x${qty})`, 
+                loc: liveInventory[liveProductIdx].hub || 'Vendor Location', 
+                dropLoc: fullAddress, 
+                customerPhone: custPhone, 
+                volume: totalVol, 
+                revenue: totalDeliveryFee, 
+                trips: trips, 
+                timestamp: Date.now(),
+                originRegion: txRegion 
+            });
+            localStorage.setItem(adminKey, JSON.stringify(adminQueue));
+
+            // Cleanup
+            document.getElementById('sellModal').classList.add('hidden');
+            renderActiveOrders(); 
+            renderWallet(); 
+            renderMarketplace(); 
+            
+            // Clear Form
+            document.getElementById('oCustomer').value = '';
+            document.getElementById('oPhone').value = '';
+            document.getElementById('oLoc').value = '';
+            document.getElementById('sellQty').value = '1';
+            
+            showToast(`Order Placed in ${txRegion}!`);
+        }
+
+        // --- AI LOGIC ---
+        function genCaption(name, price) {
+            if(myTier < 2) return showToast("Upgrade to Tier 2 for AI!", "error");
+            if(myCredits < 1 && myTier < 3) return showToast("No Credits Left", "error");
+            
+            if(myTier < 3) { myCredits--; updateCreditsUI(); }
+
+            document.getElementById('captionModal').classList.remove('hidden');
+            document.getElementById('captionOutput').innerText = "Generating viral caption...";
+            
+            callGemini(`Write a short, viral WhatsApp status for selling "${name}" at GHS ${price}. Use emojis.`, 'captionOutput');
+        }
+
+        function refreshPulse() {
+            if(myTier < 2) return showToast("Upgrade to Tier 2!", "error");
+            if(myCredits < 5 && myTier < 3) return showToast("Needs 5 Credits", "error");
+            if(myTier < 3) { myCredits -= 5; updateCreditsUI(); }
+            document.getElementById('pulseContent').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> Scanning ecosystem...";
+            const adminQueue = JSON.parse(localStorage.getItem('balnova_admin_queue')) || [];
+            const recentSales = adminQueue.map(o => o.item).join(', ');
+            const vendorSummary = vendorInventory.slice(0, 5).map(p => `${p.name} (${p.baseStock} units)`).join(', ');
+            const prompt = `Act as a Senior Market Analyst. INTERNAL DATA: Inventory: ${vendorSummary}... Sales: ${recentSales.substring(0, 300)}... Compare Supply vs Demand. Concise Markdown.`;
+            callGemini(prompt, 'pulseContent');
+        }
+
+        function analyzeShop() {
+            if(myTier < 2) return showToast("Upgrade to Tier 2!", "error");
+            if(myCredits < 2 && myTier < 3) return showToast("Needs 2 Credits", "error");
+            if(myTier < 3) { myCredits -= 2; updateCreditsUI(); }
+            document.getElementById('analystContent').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> Analyzing your shop...";
+            const myStock = myShop.map(p => `${p.name} (Price: ${p.sellingPrice})`).join(', ');
+            const mySales = myWallet.map(t => t.desc).join(', ');
+            const prompt = `Act as a Retail Consultant. MY STOCK: ${myStock}. MY SALES: ${mySales}. Identify best sellers and dead stock.`;
+            callGemini(prompt, 'analystContent');
+        }
+
+        // --- SIMULATION BUTTON ---
+        function simulateOrder() {
+            if(myShop.length === 0) return showToast("Import products first!", "error");
+            const idx = Math.floor(Math.random() * myShop.length);
+            openSellModal(idx);
+        }
+
+        // --- STANDARD RENDERS ---
+        function renderActiveOrders() { const tb = document.getElementById('activeOrdersTable'); tb.innerHTML = ''; if (myOrders.length === 0) { tb.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">No active orders</td></tr>`; return; } myOrders.forEach(o => { let statusColor = "text-yellow-600 bg-yellow-100"; if(o.status.includes("Delivered")) statusColor = "text-green-600 bg-green-100"; if(o.status.includes("Rider")) statusColor = "text-blue-600 bg-blue-100"; if(o.status.includes("Failed") || o.status.includes("Returned")) statusColor = "text-red-600 bg-red-100"; tb.innerHTML += `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50"><td class="p-4 font-mono text-xs text-gray-500">${o.id}</td><td class="p-4 font-bold dark:text-white">${o.item}</td><td class="p-4 dark:text-white">${o.customer}</td><td class="p-4"><span class="${statusColor} px-2 py-1 rounded text-xs font-bold">${o.status}</span></td><td class="p-4 font-mono font-bold text-green-500">GHS ${o.profit.toFixed(2)}</td></tr>`; }); }
+        function renderWallet() { const tb = document.getElementById('walletTable'); tb.innerHTML = ''; myWallet.forEach(t => { tb.innerHTML += `<tr><td class="p-4 text-gray-500">${t.date}</td><td class="p-4 font-bold dark:text-white">${t.desc}</td><td class="p-4 font-mono text-gray-700 dark:text-gray-300">GHS ${t.salePrice}</td><td class="p-4 text-xs text-red-400">-${(t.fee || 0).toFixed(2)}</td><td class="p-4 font-bold text-green-500">+${t.amount.toFixed(2)}</td></tr>`; }); }
+
+        // --- UTILS ---
+        async function callGemini(prompt, targetId) { if(!apiKey) return showToast("Admin API Key missing", "error"); const el = document.getElementById(targetId); try { const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); const d = await r.json(); el.innerHTML = marked.parse(d.candidates[0].content.parts[0].text); } catch(e) { el.innerText = "AI Service Unavailable"; } }
+        function updateCreditsUI() { document.getElementById('creditBalance').innerText = myCredits; localStorage.setItem('balnova_reseller_credits', myCredits); }
+        function saveApiKey() { apiKey = document.getElementById('apiKeyInput').value; localStorage.setItem('gemini_api_key', apiKey); showToast("API Key Saved"); }
+        function showToast(m, t='success') { const d=document.createElement('div'); d.className=`${t==='success'?'bg-brand-navy':'bg-red-600'} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 fixed top-5 right-5 z-[70]`; d.innerHTML=`<span>${m}</span>`; document.body.appendChild(d); setTimeout(()=>d.remove(),3000); }
+        function switchTab(n) { document.querySelectorAll('.tab-section').forEach(e=>e.classList.add('hidden')); document.getElementById(`section-${n}`).classList.remove('hidden'); if(window.innerWidth<768) toggleSidebar(); }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('sidebarOverlay').classList.toggle('hidden'); }
+        function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.setItem('reseller_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); }
+        async function addCategory() { const c = await showInputModal("Category Name:"); if(c) showToast("Category Added"); } 
+        async function resetResellerData() { if(await showConfirmModal("Wipe all data?")) { localStorage.clear(); location.reload(); } }
+    </script>
+</body>
+</html>
