@@ -1,27 +1,23 @@
 import { prisma } from "@/lib/server/prisma"
-import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
+import { getClientIp, rateLimitSecure } from "@/lib/server/rate-limit"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { signMobileToken } from "@/lib/server/mobile-auth"
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization"
-}
+import { buildCorsHeaders } from "@/lib/server/cors"
 
 const loginSchema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(1).max(200)
 })
 
-export async function OPTIONS() {
-  return new Response(null, { status: 204, headers: corsHeaders })
+export async function OPTIONS(req: Request) {
+  return new Response(null, { status: 204, headers: buildCorsHeaders(req, "POST, OPTIONS") })
 }
 
 export async function POST(req: Request) {
+  const corsHeaders = buildCorsHeaders(req, "POST, OPTIONS")
   const ip = getClientIp(req)
-  const limiter = rateLimit(`mobile_login:${ip}`, 15, 10 * 60 * 1000)
+  const limiter = await rateLimitSecure(`mobile_login:${ip}`, 15, 10 * 60 * 1000)
   if (!limiter.ok) {
     return Response.json({ error: "Too many requests. Try again later." }, { status: 429, headers: corsHeaders })
   }

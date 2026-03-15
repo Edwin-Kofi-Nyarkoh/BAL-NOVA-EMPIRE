@@ -7,6 +7,7 @@ import { Shield, Zap, MessageCircle, TriangleAlert, Ruler, Copy, X } from "lucid
 import { getJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
 import { Rajdhani, JetBrains_Mono } from "next/font/google"
+import { useRiderDashboardQuery } from "@/lib/query"
 
 const rajdhani = Rajdhani({ subsets: ["latin"], weight: ["500", "600", "700"] })
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "800"] })
@@ -44,6 +45,7 @@ const SECTOR_PROBABILITIES: Record<string, number> = {
 }
 
 export default function RiderPage() {
+  const riderDashboardQuery = useRiderDashboardQuery()
   const [state, setState] = useState<RiderState | null>(null)
   const [tasks, setTasks] = useState<RiderTask[]>([])
   const [actionOpen, setActionOpen] = useState(false)
@@ -92,19 +94,27 @@ export default function RiderPage() {
   }, [activeTaskId, sortedTasks])
 
   useEffect(() => {
-    void initSystem()
+    requestWakeLock()
+    speak("V12 Flight Deck Online. Neural uplink ready.")
     const interval = setInterval(runBrainDiagnostics, 5000)
-    const refresh = setInterval(() => void refreshDashboard(), 20000)
     const onVis = () => setIsVisible(document.visibilityState === "visible")
     document.addEventListener("visibilitychange", onVis)
     startGeoWatch()
     return () => {
       clearInterval(interval)
-      clearInterval(refresh)
       document.removeEventListener("visibilitychange", onVis)
       stopGeoWatch()
     }
   }, [])
+
+  useEffect(() => {
+    const data = riderDashboardQuery.data
+    if (!data) return
+    if (data.state) setState(data.state as RiderState)
+    if (Array.isArray(data.tasks)) setTasks(data.tasks as RiderTask[])
+    const nextActive = data.state?.activeTaskId || pickFirstTaskId((data.tasks || []) as RiderTask[])
+    setActiveTaskId(nextActive)
+  }, [riderDashboardQuery.data])
 
   useEffect(() => {
     if (!activeTask) {
@@ -126,22 +136,9 @@ export default function RiderPage() {
     }, 1000)
     return () => clearTimeout(timer)
   }, [activeTask?.id])
-  async function initSystem() {
-    await refreshDashboard()
-    requestWakeLock()
-    speak("V12 Flight Deck Online. Neural uplink ready.")
-  }
-
   async function refreshDashboard() {
     if (!isVisible) return
-    const data = await getJSON<{ state?: RiderState; tasks?: RiderTask[] }>(
-      "/api/rider/dashboard",
-      {}
-    )
-    if (data.state) setState(data.state)
-    if (Array.isArray(data.tasks)) setTasks(data.tasks)
-    const nextActive = data.state?.activeTaskId || pickFirstTaskId(data.tasks || [])
-    setActiveTaskId(nextActive)
+    await riderDashboardQuery.refetch()
   }
 
   function pickFirstTaskId(list: RiderTask[]) {

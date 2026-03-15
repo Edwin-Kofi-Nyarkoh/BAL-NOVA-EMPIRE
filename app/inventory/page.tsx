@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
+import { useInventoryQuery } from "@/lib/query"
 import { formatCurrency } from "@/lib/utils"
 import { useDialog } from "@/components/ui/dialog-service"
 
@@ -21,8 +22,9 @@ const emptyForm = { name: "", price: "", brand: "", desc: "", imageUrl: "", base
 
 export default function InventoryPage() {
   const dialog = useDialog()
+  const inventoryQuery = useInventoryQuery()
   const [items, setItems] = useState<Product[]>([])
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle")
+  const status = inventoryQuery.isError ? "error" : inventoryQuery.isLoading ? "loading" : "idle"
   const [message, setMessage] = useState("")
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -36,8 +38,8 @@ export default function InventoryPage() {
   const editImageInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
-    void loadItems()
-  }, [])
+    setItems((inventoryQuery.data || []) as Product[])
+  }, [inventoryQuery.data])
 
   useEffect(() => {
     if (!imageFile) {
@@ -60,18 +62,8 @@ export default function InventoryPage() {
   }, [editImageFile])
 
   async function loadItems() {
-    setStatus("loading")
     setMessage("")
-    try {
-      const res = await fetch("/api/inventory")
-      if (!res.ok) throw new Error("Unable to load inventory")
-      const data = await res.json()
-      setItems(Array.isArray(data.items) ? data.items : [])
-      setStatus("idle")
-    } catch (err) {
-      setStatus("error")
-      setMessage(err instanceof Error ? err.message : "Unable to load inventory")
-    }
+    await inventoryQuery.refetch()
   }
 
   const canSubmit = useMemo(() => {
@@ -111,6 +103,7 @@ export default function InventoryPage() {
       setImageFile(null)
       setImagePreview(null)
       setItems(Array.isArray(data.items) ? data.items : [])
+      await inventoryQuery.refetch()
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Create failed")
     }
@@ -158,7 +151,7 @@ export default function InventoryPage() {
       setEditingId(null)
       setEditImageFile(null)
       setEditImagePreview(null)
-      await loadItems()
+      await inventoryQuery.refetch()
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Update failed")
     }
@@ -190,7 +183,7 @@ export default function InventoryPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error || "Delete failed")
-      await loadItems()
+      await inventoryQuery.refetch()
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Delete failed")
     }
@@ -420,7 +413,7 @@ export default function InventoryPage() {
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({ id: item.id, imageUrl: null })
                                   })
-                                  await loadItems()
+                                  await inventoryQuery.refetch()
                                 }}
                                 className="text-[10px] font-bold text-red-500"
                               >

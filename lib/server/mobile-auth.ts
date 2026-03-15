@@ -10,8 +10,11 @@ type MobileTokenUser = {
 
 const SECRET =
   process.env.MOBILE_AUTH_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  "bal-nova-dev-secret"
+  process.env.NEXTAUTH_SECRET
+
+if (!SECRET) {
+  throw new Error("Missing MOBILE_AUTH_SECRET (or NEXTAUTH_SECRET) for mobile token signing.")
+}
 
 const SECRET_KEY = new TextEncoder().encode(SECRET)
 

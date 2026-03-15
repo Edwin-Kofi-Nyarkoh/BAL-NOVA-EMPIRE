@@ -1,9 +1,18 @@
 import { prisma } from "@/lib/server/prisma"
 import { requireAdmin } from "@/lib/server/api-auth"
+import { proxyToMicroservice } from "@/lib/server/microservice"
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireAdmin()
   if (!auth.ok) return auth.response
+  const user = auth.session.user as any
+
+  const proxied = await proxyToMicroservice(req, "core", "admin/pros", "GET", {
+    "x-user-id": String(user?.id || ""),
+    "x-user-role": "admin",
+    "x-user-email": String(user?.email || "")
+  }).catch(() => null)
+  if (proxied) return proxied
 
   const portfolios = await prisma.proPortfolio.findMany({
     orderBy: { createdAt: "desc" }

@@ -10,6 +10,7 @@ import { Menu } from "lucide-react"
 import { OperationalAlerts } from "@/components/dashboard/operational-alerts"
 import { signOut, useSession } from "next-auth/react"
 import { useToast } from "@/components/ui/toast-service"
+import { useAuthSessionQuery, useHealthQuery, useMeQuery, useRateCardQuery, useSettingsQuery, useWeatherQuery } from "@/lib/query"
 
 type AdminShellProps = {
   title: string
@@ -18,6 +19,11 @@ type AdminShellProps = {
 }
 
 export function AdminShell({ title, subtitle, children }: AdminShellProps) {
+  const healthQuery = useHealthQuery()
+  const authSessionQuery = useAuthSessionQuery()
+  const rateCardQuery = useRateCardQuery()
+  const meQuery = useMeQuery()
+  const settingsQuery = useSettingsQuery()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [health, setHealth] = useState<"loading" | "ok" | "error">("loading")
   const [healthError, setHealthError] = useState("")
@@ -43,52 +49,37 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
   const toast = useToast()
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [atBottom, setAtBottom] = useState(false)
+  const weatherQuery = useWeatherQuery(region)
 
   useEffect(() => {
-    let active = true
-    async function checkHealth() {
-      try {
-        const res = await fetch("/api/health")
-        const data = await res.json().catch(() => ({}))
-        if (!active) return
-        setHealth(data?.db === "ok" ? "ok" : "error")
-        setHealthError(data?.error || "")
-      } catch {
-        if (!active) return
-        setHealth("error")
-        setHealthError("Health endpoint unreachable.")
-      }
+    if (healthQuery.isLoading) {
+      setHealth("loading")
+      return
     }
-
-    async function checkSession() {
-      try {
-        const res = await fetch("/api/auth/session")
-        if (!active) return
-        setSessionOk(res.ok ? "ok" : "error")
-        if (!res.ok) {
-          setSessionError("Session endpoint returned error.")
-        } else {
-          setSessionError("")
-        }
-      } catch {
-        if (!active) return
-        setSessionOk("error")
-        setSessionError("Session endpoint unreachable.")
-      }
+    if (healthQuery.isError) {
+      setHealth("error")
+      setHealthError("Health endpoint unreachable.")
+      return
     }
+    const data = healthQuery.data || {}
+    const healthy = data?.db === "ok" || data?.ok === true || data?.status === "healthy"
+    setHealth(healthy ? "ok" : "error")
+    setHealthError(data?.error || "")
+  }, [healthQuery.data, healthQuery.isError, healthQuery.isLoading])
 
-    checkHealth()
-    checkSession()
-    const interval = setInterval(() => {
-      checkHealth()
-      checkSession()
-    }, 45000)
-
-    return () => {
-      active = false
-      clearInterval(interval)
+  useEffect(() => {
+    if (authSessionQuery.isLoading) {
+      setSessionOk("loading")
+      return
     }
-  }, [])
+    if (authSessionQuery.isError) {
+      setSessionOk("error")
+      setSessionError("Session endpoint unreachable.")
+      return
+    }
+    setSessionOk("ok")
+    setSessionError("")
+  }, [authSessionQuery.isError, authSessionQuery.isLoading])
 
   useEffect(() => {
     if (sessionStatus === "authenticated") return
@@ -100,88 +91,50 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
   }, [sessionStatus])
 
   useEffect(() => {
-    let active = true
-    async function loadRateCard() {
-      try {
-        const res = await fetch("/api/rate-card")
-        const data = await res.json().catch(() => ({}))
-        if (!active) return
-        if (data?.card) {
-          setRateForm((prev) => ({ ...prev, ...data.card }))
-        }
-      } catch {
-        // ignore
-      }
+    const card = rateCardQuery.data?.card
+    if (card) {
+      setRateForm((prev) => ({
+        ...prev,
+        fx: card.fx != null ? String(card.fx) : prev.fx,
+        air: card.air != null ? String(card.air) : prev.air,
+        sea: card.sea != null ? String(card.sea) : prev.sea,
+        roadKm: card.roadKm != null ? String(card.roadKm) : prev.roadKm,
+        roadBase: card.roadBase != null ? String(card.roadBase) : prev.roadBase,
+        border: card.border != null ? String(card.border) : prev.border,
+        local: card.local != null ? String(card.local) : prev.local
+      }))
     }
-    loadRateCard()
-    return () => {
-      active = false
-    }
-  }, [])
+  }, [rateCardQuery.data])
 
   useEffect(() => {
-    let active = true
-    async function loadMe() {
-      try {
-        const res = await fetch("/api/me")
-        const data = await res.json().catch(() => ({}))
-        if (!active) return
-        if (data?.user?.id) setCurrentUserId(String(data.user.id))
-      } catch {
-        // ignore
-      }
-    }
-    loadMe()
-    return () => {
-      active = false
-    }
-  }, [])
+    const me = meQuery.data?.user
+    if (me?.id) setCurrentUserId(String(me.id))
+  }, [meQuery.data])
 
   useEffect(() => {
-    let active = true
-    async function loadSettings() {
-      try {
-        const res = await fetch("/api/settings")
-        const data = await res.json().catch(() => ({}))
-        if (!active) return
-        if (data?.settings?.region) setRegion(String(data.settings.region))
-      } catch {
-        // ignore
-      }
-    }
-    loadSettings()
-    return () => {
-      active = false
-    }
-  }, [])
+    const r = settingsQuery.data?.settings?.region
+    if (r) setRegion(String(r))
+  }, [settingsQuery.data])
 
   useEffect(() => {
-    let active = true
-    async function loadWeather() {
-      try {
-        const res = await fetch(`/api/weather?region=${encodeURIComponent(region)}`)
-        const data = await res.json().catch(() => ({}))
-        if (!active) return
-        if (res.ok && data?.tempC !== undefined) {
-          setWeather({ tempC: Number(data.tempC), summary: String(data.summary || ""), location: String(data.location || "") })
-          setWeatherError("")
-        } else {
-          setWeather(null)
-          setWeatherError(data?.error || "Weather unavailable")
-        }
-      } catch {
-        if (!active) return
-        setWeather(null)
-        setWeatherError("Weather unavailable")
-      }
+    const data = weatherQuery.data
+    if (weatherQuery.isError) {
+      setWeather(null)
+      setWeatherError("Weather unavailable")
+      return
     }
-    loadWeather()
-    const interval = setInterval(loadWeather, 300000)
-    return () => {
-      active = false
-      clearInterval(interval)
+    if (data?.tempC !== undefined) {
+      setWeather({
+        tempC: Number(data.tempC),
+        summary: String(data.summary || ""),
+        location: String(data.location || "")
+      })
+      setWeatherError("")
+    } else if (data?.error) {
+      setWeather(null)
+      setWeatherError(String(data.error))
     }
-  }, [region])
+  }, [weatherQuery.data, weatherQuery.isError])
 
   async function switchRegion(next: string) {
     setRegion(next)
@@ -541,14 +494,14 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
 
       <button
         onClick={toggleScrollPos}
-        className="hidden md:flex fixed bottom-8 right-6 z-[90] w-12 h-12 bg-mynavy dark:bg-myamber text-white dark:text-black rounded-full shadow-2xl border-2 border-white/20 items-center justify-center hover:scale-110 transition-all duration-300"
+        className="hidden md:flex fixed bottom-8 right-6 z-90 w-12 h-12 bg-mynavy dark:bg-myamber text-white dark:text-black rounded-full shadow-2xl border-2 border-white/20 items-center justify-center hover:scale-110 transition-all duration-300"
         aria-label="Toggle scroll position"
       >
         {atBottom ? "↑" : "↓"}
       </button>
 
       {showExpenseModal ? (
-        <div className="fixed inset-0 z-[130] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-130 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-gray-900 w-full max-w-sm rounded-2xl shadow-2xl p-6 border-l-4 border-red-500">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-lg text-white">Log Burn Rate</h3>
@@ -598,7 +551,7 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
       ) : null}
 
       {showRateModal ? (
-        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-150 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 w-full max-w-lg border-t-4 border-green-500 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <div>
@@ -707,7 +660,7 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
       ) : null}
 
       {showMaintenanceModal ? (
-        <div className="fixed inset-0 z-[140] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-140 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-gray-900 w-full max-w-sm rounded-2xl shadow-2xl p-6 border-l-4 border-orange-500">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-lg text-white">Record Maintenance</h3>
