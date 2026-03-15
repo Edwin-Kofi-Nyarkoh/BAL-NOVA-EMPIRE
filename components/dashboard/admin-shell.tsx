@@ -266,9 +266,9 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
         onClick={() => setSidebarOpen(false)}
       />
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative pt-16 md:pt-0 md:ml-64">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative md:ml-64">
         <div className={cn("scanning-line", autoPilot ? "opacity-100" : "opacity-0")} />
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16 flex items-center justify-between px-6 shrink-0 transition-colors">
+        <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-14 sm:h-16 flex items-center justify-between px-4 sm:px-6 shrink-0 transition-colors">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -283,7 +283,7 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 ml-auto">
+          <div className="flex items-center gap-3 sm:gap-4 ml-auto">
             <div className="hidden md:flex items-center gap-2">
               <button
                 onClick={() => setAutoPilot((v) => !v)}
@@ -480,7 +480,7 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
             </div>
 
             <ModeToggle />
-            <LogoutButton className="inline-flex text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
+            <LogoutButton className="inline-flex text-[11px] sm:text-xs font-bold px-3 py-1.5 sm:py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
           </div>
         </header>
 
