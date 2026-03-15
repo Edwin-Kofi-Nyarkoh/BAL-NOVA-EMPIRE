@@ -43,6 +43,8 @@ export default function StorefrontPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [isAuthed, setIsAuthed] = useState(false)
   const [authPrompt, setAuthPrompt] = useState(false)
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   useEffect(() => {
     void syncInventory()
@@ -129,6 +131,8 @@ export default function StorefrontPage() {
     const q = query.toLowerCase()
     return products.filter((p) => p.name.toLowerCase().includes(q) || (p.brand || "").toLowerCase().includes(q))
   }, [products, query])
+
+  const latestDrops = useMemo(() => products.slice(0, 6), [products])
 
   const total = useMemo(() => cart.reduce((sum, c) => sum + c.price * c.qty, 0), [cart])
   const cartCount = useMemo(() => cart.reduce((sum, c) => sum + c.qty, 0), [cart])
@@ -330,6 +334,33 @@ export default function StorefrontPage() {
           />
         </div>
 
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-lg">Latest Drops</h2>
+            <span className="text-[10px] text-gray-400">{latestDrops.length} items</span>
+          </div>
+          {latestDrops.length === 0 ? (
+            <div className="text-xs text-gray-500">Store is empty.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {latestDrops.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setSelectedProduct(p)
+                    setShowProductModal(true)
+                  }}
+                  className="text-left bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3 border border-gray-100 dark:border-gray-700 hover:border-myamber transition"
+                >
+                  <div className="text-xs text-gray-400">{p.brand || "Bal Nova"}</div>
+                  <div className="font-bold text-sm truncate">{p.name}</div>
+                  <div className="text-xs text-myamber font-bold">{formatCurrency(p.price)}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((p) => (
             <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
@@ -345,7 +376,15 @@ export default function StorefrontPage() {
                 </div>
               ) : null}
               <div className="text-xs text-gray-400">{p.brand || "Bal Nova"}</div>
-              <div className="font-bold">{p.name}</div>
+              <button
+                onClick={() => {
+                  setSelectedProduct(p)
+                  setShowProductModal(true)
+                }}
+                className="font-bold text-left hover:text-myamber transition"
+              >
+                {p.name}
+              </button>
               {p.desc ? <div className="text-[11px] text-gray-500 mt-1">{p.desc}</div> : null}
               <div className="text-sm text-myamber font-bold">{formatCurrency(p.price)}</div>
               <button
@@ -468,6 +507,32 @@ export default function StorefrontPage() {
               className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700"
             >
               Okay
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showProductModal && selectedProduct ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg dark:text-white">Product Details</h3>
+              <button onClick={() => setShowProductModal(false)} className="text-gray-400 text-xl">x</button>
+            </div>
+            {selectedProduct.imageUrl ? (
+              <div className="mb-3 h-36 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700">
+                <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="h-full w-full object-cover" />
+              </div>
+            ) : null}
+            <div className="text-xs text-gray-400">{selectedProduct.brand || "Bal Nova"}</div>
+            <div className="font-bold text-lg">{selectedProduct.name}</div>
+            {selectedProduct.desc ? <div className="text-sm text-gray-500 mt-1">{selectedProduct.desc}</div> : null}
+            <div className="text-sm text-myamber font-bold mt-2">{formatCurrency(selectedProduct.price)}</div>
+            <button
+              onClick={() => addToCart(selectedProduct)}
+              className="mt-4 w-full text-xs font-bold bg-mynavy text-white py-2 rounded-lg hover:bg-myblue transition"
+            >
+              Add to Cart
             </button>
           </div>
         </div>

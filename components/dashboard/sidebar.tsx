@@ -26,6 +26,7 @@ import { useDialog } from "@/components/ui/dialog-service"
 import { useToast } from "@/components/ui/toast-service"
 
 const menuItems = [
+  { icon: <LayoutDashboard size={20} />, label: "Empire HQ", href: "/admin-portal" },
   { icon: <TrendingUp size={20} />, label: "Financial Engine", href: "/financial-engine" },
   { icon: <Users size={20} />, label: "Executive Suite", href: "/executive-suite" },
   { icon: <LayoutDashboard size={20} />, label: "Financial Cockpit", href: "/financial-cockpit" },

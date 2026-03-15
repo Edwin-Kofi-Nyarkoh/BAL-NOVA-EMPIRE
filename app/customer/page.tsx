@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
+import { useSearchParams } from "next/navigation"
 import {
   ShoppingCart,
   MapPin,
@@ -103,6 +104,13 @@ export default function CustomerHome() {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null)
   const [addressLabel, setAddressLabel] = useState("")
   const [addressNote, setAddressNote] = useState("")
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [showNovaAssistant, setShowNovaAssistant] = useState(false)
+  const [novaPrompt, setNovaPrompt] = useState("")
+  const [novaResponse, setNovaResponse] = useState("")
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     void syncInventory()
@@ -114,6 +122,13 @@ export default function CustomerHome() {
     void syncCart()
     void syncPros()
   }, [])
+
+  useEffect(() => {
+    const paid = searchParams.get("paid")
+    if (paid === "1") {
+      setShowPaymentSuccess(true)
+    }
+  }, [searchParams])
 
   const chatStreamRef = useRef<EventSource | null>(null)
   const chatSinceRef = useRef<string>("")
@@ -287,6 +302,11 @@ export default function CustomerHome() {
     })
   }
 
+  async function openProductDetails(p: Product) {
+    setSelectedProduct(p)
+    setShowProductModal(true)
+  }
+
   function removeFromCart(productId: string) {
     setCart((prev) => {
       const next = prev.filter((p) => p.id !== productId)
@@ -337,6 +357,17 @@ export default function CustomerHome() {
       const text = await callGemini(apiKey, prompt)
       const lines = text.split("\n").map((l) => l.replace(/^[-*]\s?/, "").trim()).filter(Boolean)
       setAiForYou(lines.slice(0, 4))
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function askNovaAssistant() {
+    if (!apiKey || !novaPrompt.trim()) return
+    setAiLoading(true)
+    try {
+      const text = await callGemini(apiKey, novaPrompt.trim())
+      setNovaResponse(text)
     } finally {
       setAiLoading(false)
     }
@@ -597,7 +628,12 @@ export default function CustomerHome() {
                           className="min-w-[180px] bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700"
                         >
                           <div className="text-xs text-gray-400">{p.brand || "Bal Nova"}</div>
-                          <div className="font-bold">{p.name}</div>
+                          <button
+                            onClick={() => openProductDetails(p)}
+                            className="font-bold text-left hover:text-myamber transition"
+                          >
+                            {p.name}
+                          </button>
                           <div className="text-sm text-myamber font-bold mt-2">{formatCurrency(p.price)}</div>
                         </div>
                       ))}
@@ -612,7 +648,12 @@ export default function CustomerHome() {
                         className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:border-myamber transition"
                       >
                         <div className="text-xs text-gray-400">{p.brand || "Bal Nova"}</div>
-                        <div className="font-bold text-sm">{p.name}</div>
+                        <button
+                          onClick={() => openProductDetails(p)}
+                          className="font-bold text-sm text-left hover:text-myamber transition"
+                        >
+                          {p.name}
+                        </button>
                         <div className="text-sm text-myamber font-bold mt-2">{formatCurrency(p.price)}</div>
                         <button
                           onClick={() => addToCart(p)}
@@ -1052,6 +1093,14 @@ export default function CustomerHome() {
         *
       </button>
 
+      <button
+        onClick={() => setShowNovaAssistant(true)}
+        className="fixed bottom-24 left-6 z-50 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center"
+        title="Nova Assistant"
+      >
+        <WandSparkles className="h-5 w-5" />
+      </button>
+
       {showAddressModal ? (
         <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
@@ -1111,6 +1160,74 @@ export default function CustomerHome() {
               className="w-full mt-4 bg-mynavy text-white py-3 rounded-xl font-bold"
             >
               Submit Request
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showProductModal && selectedProduct ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg dark:text-white">Product Details</h3>
+              <button onClick={() => setShowProductModal(false)} className="text-gray-400 text-xl">x</button>
+            </div>
+            <div className="text-xs text-gray-400">{selectedProduct.brand || "Bal Nova"}</div>
+            <div className="font-bold text-lg">{selectedProduct.name}</div>
+            {selectedProduct.desc ? <div className="text-sm text-gray-500 mt-1">{selectedProduct.desc}</div> : null}
+            <div className="text-sm text-myamber font-bold mt-2">{formatCurrency(selectedProduct.price)}</div>
+            <button
+              onClick={() => addToCart(selectedProduct)}
+              className="mt-4 w-full text-xs font-bold bg-mynavy text-white py-2 rounded-lg hover:bg-myblue transition"
+            >
+              Add to Cart
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showNovaAssistant ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg dark:text-white">Nova Assistant</h3>
+              <button onClick={() => setShowNovaAssistant(false)} className="text-gray-400 text-xl">x</button>
+            </div>
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Ask Nova</label>
+            <textarea
+              value={novaPrompt}
+              onChange={(e) => setNovaPrompt(e.target.value)}
+              rows={3}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              placeholder="Ask for product recommendations or delivery tips"
+            />
+            <button
+              onClick={askNovaAssistant}
+              className="w-full mt-3 bg-mynavy text-white py-2 rounded-lg text-xs font-bold"
+            >
+              {aiLoading ? "Thinking..." : "Ask Nova"}
+            </button>
+            {novaResponse ? (
+              <div className="mt-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                {novaResponse}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {showPaymentSuccess ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl text-center border-t-4 border-green-500">
+            <h3 className="text-lg font-bold text-green-600 mb-2">Payment Successful!</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+              Your order has been confirmed and is now processing.
+            </p>
+            <button
+              onClick={() => setShowPaymentSuccess(false)}
+              className="w-full py-2 bg-mynavy text-white rounded-xl font-bold"
+            >
+              Close
             </button>
           </div>
         </div>

@@ -28,6 +28,15 @@ type ShopItem = {
   myCategory?: string
 }
 
+type Listing = {
+  id: string
+  name: string
+  price: number
+  cost?: number | null
+  status?: string
+  inventoryItemId?: string | null
+}
+
 type Order = {
   id: string
   item: string
@@ -39,23 +48,32 @@ type Order = {
 type Brand = {
   name: string
   tagline: string
+  customDomain?: string | null
 }
 
-type TabKey = "dashboard" | "shop" | "orders" | "wallet" | "team" | "settings"
+type TabKey = "dashboard" | "marketplace" | "shop" | "active_orders" | "orders" | "wallet" | "team" | "settings"
 
 export default function ResellerPage() {
   const dialog = useDialog()
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [orders, setOrders] = useState<Order[]>([])
-  const [shop, setShop] = useState<ShopItem[]>([])
+  const [shop, setShop] = useState<Listing[]>([])
+  const [marketplace, setMarketplace] = useState<ShopItem[]>([])
   const [team, setTeam] = useState<{ id?: string; name: string; role: string }[]>([])
-  const [brand, setBrand] = useState<Brand>({ name: "", tagline: "Powered by Bal Nova" })
+  const [brand, setBrand] = useState<Brand>({ name: "", tagline: "Powered by Bal Nova", customDomain: "" })
   const [tier, setTier] = useState(1)
   const [apiKey, setApiKey] = useState("")
   const [aiAdvice, setAiAdvice] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [isDark, setIsDark] = useState(false)
+  const [showCaptionModal, setShowCaptionModal] = useState(false)
+  const [captionPrompt, setCaptionPrompt] = useState("")
+  const [captionResult, setCaptionResult] = useState("")
+  const [showOrderModal, setShowOrderModal] = useState(false)
+  const [orderItem, setOrderItem] = useState("")
+  const [orderPrice, setOrderPrice] = useState("")
+  const [orderCustomer, setOrderCustomer] = useState("")
 
   useEffect(() => {
     void syncSettings()
@@ -65,6 +83,7 @@ export default function ResellerPage() {
 
     void syncOrders()
     void syncInventory()
+    void syncListings()
     void syncBrand()
     void syncTeam()
   }, [])
@@ -77,12 +96,17 @@ export default function ResellerPage() {
 
   async function syncInventory() {
     const data = await getJSON<{ items: ShopItem[] }>("/api/inventory", { items: [] })
-    setShop((Array.isArray(data.items) ? data.items : []).map((p: any) => ({
+    setMarketplace((Array.isArray(data.items) ? data.items : []).map((p: any) => ({
       id: p.id,
       name: p.name,
       price: p.price,
       sellingPrice: p.price
     })))
+  }
+
+  async function syncListings() {
+    const data = await getJSON<{ listings?: Listing[] }>("/api/reseller/listings", {})
+    setShop(Array.isArray(data.listings) ? data.listings : [])
   }
 
   async function syncBrand() {
@@ -94,7 +118,7 @@ export default function ResellerPage() {
       {}
     )
     if (existing.brand) {
-      setBrand({ name: existing.brand.name, tagline: existing.brand.tagline })
+      setBrand({ name: existing.brand.name, tagline: existing.brand.tagline, customDomain: (existing.brand as any).customDomain || "" })
       setTier(existing.brand.tier)
     } else {
       void requestJSON("/api/reseller/brand", { name, tagline: "Powered by Bal Nova", tier }, "PUT", {})
@@ -132,9 +156,16 @@ export default function ResellerPage() {
     if (!name) return
     const priceRaw = await dialog.prompt("Selling price (GHS)", { placeholder: "0" })
     const price = parseFloat(priceRaw || "0")
-    const newItem: ShopItem = { id: `RS-${Date.now()}`, name, price, sellingPrice: price }
-    setShop((prev) => [newItem, ...prev])
-    void postJSON("/api/inventory", { item: newItem }, { items: [] })
+    const newItem = await requestJSON<{ listing?: Listing }>(
+      "/api/reseller/listings",
+      { name, price, status: "active" },
+      "POST",
+      {}
+    )
+    const listing = newItem?.listing
+    if (listing) {
+      setShop((prev) => [listing, ...prev])
+    }
   }
 
   async function addTeam() {
@@ -154,6 +185,50 @@ export default function ResellerPage() {
     } finally {
       setAiLoading(false)
     }
+  }
+
+  async function addFromMarketplace(item: ShopItem) {
+    const priceRaw = await dialog.prompt("Set selling price (GHS)", { defaultValue: String(item.price) })
+    if (!priceRaw) return
+    const price = parseFloat(priceRaw || "0")
+    const res = await requestJSON<{ listing?: Listing }>(
+      "/api/reseller/listings",
+      { inventoryItemId: item.id, name: item.name, price, cost: item.price, status: "active" },
+      "POST",
+      {}
+    )
+    const listing = res?.listing
+    if (listing) {
+      setShop((prev) => [listing, ...prev])
+    }
+  }
+
+  async function generateCaption() {
+    if (!apiKey || !captionPrompt.trim()) return
+    setAiLoading(true)
+    try {
+      const text = await callGemini(apiKey, captionPrompt.trim())
+      setCaptionResult(text)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function placeCustomerOrder() {
+    const item = orderItem.trim()
+    const price = parseFloat(orderPrice || "0")
+    if (!item || !Number.isFinite(price) || price <= 0) return
+    await requestJSON(
+      "/api/orders",
+      { order: { item, price, status: "Pending", origin: orderCustomer ? `Reseller Order - ${orderCustomer}` : "Reseller Order" } },
+      "POST",
+      {}
+    )
+    setOrderItem("")
+    setOrderPrice("")
+    setOrderCustomer("")
+    setShowOrderModal(false)
+    void syncOrders()
   }
 
   async function importLegacyResellerData() {
@@ -182,7 +257,9 @@ export default function ResellerPage() {
 
   const navItems: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: "dashboard", label: "Dashboard", icon: <ShoppingBag className="w-4 h-4" /> },
+    { key: "marketplace", label: "Marketplace", icon: <Package className="w-4 h-4" /> },
     { key: "shop", label: "My Shop", icon: <Package className="w-4 h-4" /> },
+    { key: "active_orders", label: "Active Orders", icon: <Wallet className="w-4 h-4" /> },
     { key: "orders", label: "Orders", icon: <Wallet className="w-4 h-4" /> },
     { key: "wallet", label: "Credits", icon: <Wallet className="w-4 h-4" /> },
     { key: "team", label: "Team", icon: <Users className="w-4 h-4" /> },
@@ -284,6 +361,48 @@ export default function ResellerPage() {
                   {aiAdvice || "Click Generate to analyze your reseller performance."}
                 </div>
               </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => setShowCaptionModal(true)}
+                  className="text-xs font-bold bg-myamber text-myblue px-3 py-2 rounded"
+                >
+                  Viral Caption Writer
+                </button>
+                <button
+                  onClick={() => setShowOrderModal(true)}
+                  className="text-xs font-bold bg-myblue text-white px-3 py-2 rounded"
+                >
+                  Place Customer Order
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "marketplace" ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold">Marketplace</h3>
+                <button
+                  onClick={() => setShowCaptionModal(true)}
+                  className="text-xs font-bold bg-myamber text-myblue px-3 py-2 rounded"
+                >
+                  Viral Caption Writer
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {marketplace.map((s) => (
+                  <div key={s.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+                    <div className="font-bold">{s.name}</div>
+                    <div className="text-sm text-myamber font-bold">{formatCurrency(s.price)}</div>
+                    <button
+                      onClick={() => addFromMarketplace(s)}
+                      className="mt-3 text-xs font-bold bg-mynavy text-white px-3 py-2 rounded"
+                    >
+                      Add to My Shop
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -299,10 +418,54 @@ export default function ResellerPage() {
                 {shop.map((s) => (
                   <div key={s.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
                     <div className="font-bold">{s.name}</div>
-                    <div className="text-sm text-myamber font-bold">{formatCurrency(s.sellingPrice || s.price)}</div>
+                    <div className="text-sm text-myamber font-bold">{formatCurrency(s.price)}</div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          const priceRaw = await dialog.prompt("Update price", { defaultValue: String(s.price) })
+                          if (!priceRaw) return
+                          const price = parseFloat(priceRaw || "0")
+                          await requestJSON(`/api/reseller/listings/${s.id}`, { price }, "PATCH", {})
+                          void syncListings()
+                        }}
+                        className="text-xs text-myamber"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => requestJSON(`/api/reseller/listings/${s.id}`, {}, "DELETE", {}).then(() => syncListings())}
+                        className="text-xs text-red-400"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
+            </div>
+          ) : null}
+
+          {activeTab === "active_orders" ? (
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold">Active Orders</h3>
+              {orders.filter((o) => o.status !== "Delivered" && o.status !== "Completed").length === 0 ? (
+                <div className="text-sm text-gray-500">No active orders.</div>
+              ) : (
+                orders
+                  .filter((o) => o.status !== "Delivered" && o.status !== "Completed")
+                  .map((o) => (
+                    <div key={o.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+                      <div className="font-bold">{o.item}</div>
+                      <div className="text-xs text-gray-400">{new Date(o.createdAt).toLocaleString()}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-sm text-myamber font-bold">{formatCurrency(o.price)}</span>
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-amber-500/15 text-amber-600">
+                          {o.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           ) : null}
 
@@ -396,8 +559,15 @@ export default function ResellerPage() {
                 onChange={(e) => setBrand((b) => ({ ...b, tagline: e.target.value }))}
                 className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-700"
               />
+              <label className="text-xs font-bold text-gray-500">Custom Domain</label>
+              <input
+                value={brand.customDomain || ""}
+                onChange={(e) => setBrand((b) => ({ ...b, customDomain: e.target.value }))}
+                className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-700"
+                placeholder="shop.yourbrand.com"
+              />
               <button
-                onClick={() => requestJSON("/api/reseller/brand", { name: brand.name, tagline: brand.tagline, tier }, "PUT", {})}
+                onClick={() => requestJSON("/api/reseller/brand", { name: brand.name, tagline: brand.tagline, customDomain: brand.customDomain, tier }, "PUT", {})}
                 className="text-xs font-bold bg-myamber text-myblue px-3 py-2 rounded"
               >
                 Save Brand
@@ -442,6 +612,71 @@ export default function ResellerPage() {
           ) : null}
         </div>
       </main>
+
+      {showCaptionModal ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg dark:text-white">Viral Caption Writer</h3>
+              <button onClick={() => setShowCaptionModal(false)} className="text-gray-400 text-xl">x</button>
+            </div>
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Product / Prompt</label>
+            <textarea
+              value={captionPrompt}
+              onChange={(e) => setCaptionPrompt(e.target.value)}
+              rows={3}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              placeholder="Describe the product and target audience"
+            />
+            <button
+              onClick={generateCaption}
+              className="w-full mt-3 bg-mynavy text-white py-2 rounded-lg text-xs font-bold"
+            >
+              {aiLoading ? "Generating..." : "Generate Caption"}
+            </button>
+            {captionResult ? (
+              <div className="mt-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                {captionResult}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {showOrderModal ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg dark:text-white">Place Customer Order</h3>
+              <button onClick={() => setShowOrderModal(false)} className="text-gray-400 text-xl">x</button>
+            </div>
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Item</label>
+            <input
+              value={orderItem}
+              onChange={(e) => setOrderItem(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Price (GHS)</label>
+            <input
+              value={orderPrice}
+              onChange={(e) => setOrderPrice(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Customer Name</label>
+            <input
+              value={orderCustomer}
+              onChange={(e) => setOrderCustomer(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
+            <button
+              onClick={placeCustomerOrder}
+              className="w-full mt-4 bg-myamber text-myblue py-3 rounded-xl font-bold"
+            >
+              Create Order
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

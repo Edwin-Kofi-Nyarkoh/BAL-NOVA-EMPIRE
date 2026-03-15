@@ -12,7 +12,7 @@ function applySecurityHeaders(res: NextResponse) {
 export async function proxy(req: Request) {
   const url = new URL(req.url)
   const publicPaths = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/payment/callback", "/legacy", "/api", "/storefront"]
-  const adminOnlyPaths = ["/system-config", "/log-history", "/inventory", "/payments", "/admin-messages"]
+  const adminOnlyPaths = ["/admin-portal", "/system-config", "/log-history", "/inventory", "/payments", "/admin-messages"]
   if (publicPaths.some((p) => url.pathname.startsWith(p))) {
     return applySecurityHeaders(NextResponse.next())
   }

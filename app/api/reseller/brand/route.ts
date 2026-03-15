@@ -6,6 +6,7 @@ import { z } from "zod"
 const brandSchema = z.object({
   name: z.string().min(1).max(120),
   tagline: z.string().max(200).optional(),
+  customDomain: z.string().max(200).optional(),
   tier: z.coerce.number().int().min(1).max(10).optional()
 })
 
@@ -30,17 +31,18 @@ export async function PUT(req: Request) {
   const parsed = brandSchema.safeParse({
     name: typeof body.name === "string" ? body.name.trim() : "",
     tagline: typeof body.tagline === "string" ? body.tagline.trim() : undefined,
+    customDomain: typeof body.customDomain === "string" ? body.customDomain.trim() : undefined,
     tier: body.tier
   })
   if (!parsed.success) {
     return Response.json({ error: "Name is required" }, { status: 400 })
   }
-  const { name, tagline, tier } = parsed.data
+  const { name, tagline, customDomain, tier } = parsed.data
 
   const brand = await prisma.resellerBrand.upsert({
     where: { userId },
-    update: { name, tagline: tagline || "", tier: tier ?? 1 },
-    create: { userId, name, tagline: tagline || "", tier: tier ?? 1 }
+    update: { name, tagline: tagline || "", customDomain: customDomain || null, tier: tier ?? 1 },
+    create: { userId, name, tagline: tagline || "", customDomain: customDomain || null, tier: tier ?? 1 }
   })
 
   return Response.json({ brand })

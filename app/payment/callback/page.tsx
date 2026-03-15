@@ -39,10 +39,10 @@ export default function PaymentCallbackPage() {
         <h1 className="text-2xl font-black text-mynavy dark:text-white">Payment Status</h1>
         <p className="text-sm text-gray-500">{message}</p>
         <div className="flex items-center justify-center gap-3">
-          <Link href="/storefront" className="text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10">
+          <Link href="/storefront?paid=1" className="text-xs font-bold px-3 py-2 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10">
             Back to Storefront
           </Link>
-          <Link href="/customer" className="text-xs font-bold px-3 py-2 rounded-full border border-blue-500/30 text-blue-600 hover:bg-blue-500/10">
+          <Link href="/customer?paid=1" className="text-xs font-bold px-3 py-2 rounded-full border border-blue-500/30 text-blue-600 hover:bg-blue-500/10">
             Go to Orders
           </Link>
         </div>

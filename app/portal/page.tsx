@@ -52,7 +52,7 @@ type VendorProfile = {
   tier: number
 }
 
-type TabKey = "dashboard" | "inventory" | "orders" | "wallet" | "qc" | "settings"
+type TabKey = "dashboard" | "inventory" | "orders" | "wallet" | "qc" | "team" | "settings"
 
 export default function VendorPortalPage() {
   const dialog = useDialog()
@@ -68,9 +68,20 @@ export default function VendorPortalPage() {
   const [showPickupModal, setShowPickupModal] = useState(false)
   const [showCharterModal, setShowCharterModal] = useState(false)
   const [showQcModal, setShowQcModal] = useState(false)
+  const [showPosModal, setShowPosModal] = useState(false)
+  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showAiModal, setShowAiModal] = useState(false)
   const [newProductName, setNewProductName] = useState("")
   const [newProductPrice, setNewProductPrice] = useState("")
   const [newProductStock, setNewProductStock] = useState("")
+  const [posItem, setPosItem] = useState("")
+  const [posPrice, setPosPrice] = useState("")
+  const [posHub, setPosHub] = useState("")
+  const [posCustomer, setPosCustomer] = useState("")
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [aiPrompt, setAiPrompt] = useState("")
+  const [aiResponse, setAiResponse] = useState("")
+  const [aiAssistantLoading, setAiAssistantLoading] = useState(false)
   const [aiReport, setAiReport] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [apiKey, setApiKey] = useState("")
@@ -90,6 +101,7 @@ export default function VendorPortalPage() {
     void syncSettings()
     void syncStaff()
     void syncHubs()
+    void syncQc()
   }, [])
 
   async function syncInventory() {
@@ -140,6 +152,12 @@ export default function VendorPortalPage() {
   async function syncHubs() {
     const data = await getJSON<{ hubs?: { id: string; name: string }[] }>("/api/vendor/hubs", {})
     setHubs(Array.isArray(data.hubs) ? data.hubs : [])
+  }
+
+  async function syncQc() {
+    const data = await getJSON<{ logs?: { id: string; status: string; message: string }[] }>("/api/qc", {})
+    const logs = Array.isArray(data.logs) ? data.logs : []
+    setQcLogs(logs.map((l) => `${l.status.toUpperCase()}: ${l.message}`))
   }
 
   const wallet = useMemo<WalletTx[]>(
@@ -275,12 +293,48 @@ export default function VendorPortalPage() {
     void postJSON("/api/vendor/hubs", { name }, {}).then(() => syncHubs())
   }
 
+  async function openProductDetails(p: Product) {
+    setSelectedProduct(p)
+    setShowDetailModal(true)
+  }
+
+  async function submitPosOrder() {
+    const item = posItem.trim()
+    const price = parseFloat(posPrice || "0")
+    if (!item || !Number.isFinite(price) || price <= 0) return
+    const origin = posHub || "Vendor POS"
+    await requestJSON(
+      "/api/orders",
+      { order: { item, price, status: "Completed", origin: posCustomer ? `${origin} - ${posCustomer}` : origin } },
+      "POST",
+      {}
+    )
+    setPosItem("")
+    setPosPrice("")
+    setPosHub("")
+    setPosCustomer("")
+    setShowPosModal(false)
+    void syncOrders()
+  }
+
+  async function generateAiAssistant() {
+    if (!apiKey || !aiPrompt.trim()) return
+    setAiAssistantLoading(true)
+    try {
+      const text = await callGemini(apiKey, aiPrompt.trim())
+      setAiResponse(text)
+    } finally {
+      setAiAssistantLoading(false)
+    }
+  }
+
   const navItems: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
     { key: "inventory", label: "Inventory", icon: <Boxes className="w-4 h-4" /> },
     { key: "orders", label: "Active Orders", icon: <Truck className="w-4 h-4" /> },
     { key: "wallet", label: "Wallet & Escrow", icon: <Wallet className="w-4 h-4" /> },
     { key: "qc", label: "QC & Firewall", icon: <ShieldCheck className="w-4 h-4" /> },
+    { key: "team", label: "Team Management", icon: <Users className="w-4 h-4" /> },
     { key: "settings", label: "Settings & Tiers", icon: <Settings className="w-4 h-4" /> }
   ]
 
@@ -409,6 +463,12 @@ export default function VendorPortalPage() {
                   <Plus className="w-4 h-4" /> Add Product
                 </button>
                 <button
+                  onClick={() => setShowPosModal(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2"
+                >
+                  Manual Sale (POS)
+                </button>
+                <button
                   onClick={requestPickup}
                   className="bg-myblue hover:bg-blue-900 text-white font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2"
                 >
@@ -419,6 +479,12 @@ export default function VendorPortalPage() {
                   className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2"
                 >
                   Book Van
+                </button>
+                <button
+                  onClick={() => setShowAiModal(true)}
+                  className="bg-black/80 hover:bg-black text-white font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2"
+                >
+                  AI Assistant
                 </button>
               </div>
 
@@ -456,11 +522,15 @@ export default function VendorPortalPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {products.map((p) => (
-                  <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+                  <button
+                    key={p.id}
+                    onClick={() => openProductDetails(p)}
+                    className="text-left bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:border-myamber transition"
+                  >
                     <div className="font-bold">{p.name}</div>
                     <div className="text-xs text-gray-400">Stock: {p.baseStock || 0}</div>
                     <div className="text-sm text-myamber font-bold">{formatCurrency(p.price)}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -523,6 +593,94 @@ export default function VendorPortalPage() {
                   </div>
                 ))
               )}
+              <button
+                onClick={async () => {
+                  const status = await dialog.prompt("QC Status", { placeholder: "passed / failed", defaultValue: "passed" })
+                  if (!status) return
+                  const message = await dialog.prompt("QC Message", { placeholder: "Describe the QC check" })
+                  if (!message) return
+                  await requestJSON("/api/qc", { status, message }, "POST", {})
+                  void syncQc()
+                }}
+                className="text-xs font-bold bg-myamber text-myblue px-3 py-2 rounded"
+              >
+                Log QC Event
+              </button>
+            </div>
+          ) : null}
+
+          {activeTab === "team" ? (
+            <div className="space-y-6 max-w-2xl">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold">Team Management</h3>
+                  <button onClick={addStaff} className="text-xs font-bold text-myamber">Add Staff</button>
+                </div>
+                {staff.length === 0 ? (
+                  <div className="text-sm text-gray-500">No staff yet.</div>
+                ) : (
+                  staff.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                      <div>
+                        <div className="font-bold">{s.name}</div>
+                        <div className="text-xs text-gray-400">{s.role}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            const name = await dialog.prompt("Update name", { defaultValue: s.name })
+                            if (!name) return
+                            const role = await dialog.prompt("Update role", { defaultValue: s.role })
+                            if (!role) return
+                            void requestJSON(`/api/vendor/staff/${s.id}`, { name, role }, "PATCH", {}).then(() => syncStaff())
+                          }}
+                          className="text-myamber text-xs"
+                        >
+                          Edit
+                        </button>
+                        <button onClick={() => removeStaff(s.id)} className="text-red-400 text-xs">Remove</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold">Hub Locations</h3>
+                  <button onClick={addHub} className="text-xs font-bold text-myamber">Add Hub</button>
+                </div>
+                {hubs.length === 0 ? (
+                  <div className="text-sm text-gray-500">No hubs yet.</div>
+                ) : (
+                  hubs.map((h) => (
+                    <div key={h.id} className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-gray-400" />
+                        <span>{h.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            const name = await dialog.prompt("Update hub name", { defaultValue: h.name })
+                            if (!name) return
+                            void requestJSON(`/api/vendor/hubs/${h.id}`, { name }, "PATCH", {}).then(() => syncHubs())
+                          }}
+                          className="text-myamber text-xs"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => requestJSON(`/api/vendor/hubs/${h.id}`, {}, "DELETE", {}).then(() => syncHubs())}
+                          className="text-red-400 text-xs"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           ) : null}
 
@@ -691,6 +849,105 @@ export default function VendorPortalPage() {
             >
               Save Product
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showDetailModal && selectedProduct ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg dark:text-white">Product Details</h3>
+              <button onClick={() => setShowDetailModal(false)} className="text-gray-400 text-xl">x</button>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="font-bold text-lg">{selectedProduct.name}</div>
+              <div className="text-myamber font-bold">{formatCurrency(selectedProduct.price)}</div>
+              <div className="text-xs text-gray-500">Stock: {selectedProduct.baseStock || 0}</div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => {
+                  setShowDetailModal(false)
+                  setShowAddModal(false)
+                }}
+                className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg text-xs font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showPosModal ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg dark:text-white">Manual Sale (POS)</h3>
+              <button onClick={() => setShowPosModal(false)} className="text-gray-400 text-xl">x</button>
+            </div>
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Item</label>
+            <input
+              value={posItem}
+              onChange={(e) => setPosItem(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Price (GHS)</label>
+            <input
+              value={posPrice}
+              onChange={(e) => setPosPrice(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Pickup Hub</label>
+            <input
+              value={posHub}
+              onChange={(e) => setPosHub(e.target.value)}
+              placeholder="e.g. Spintex Hub"
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Customer Name</label>
+            <input
+              value={posCustomer}
+              onChange={(e) => setPosCustomer(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
+            <button
+              onClick={submitPosOrder}
+              className="w-full mt-4 bg-emerald-600 text-white py-3 rounded-xl font-bold"
+            >
+              Create Sale
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showAiModal ? (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg dark:text-white">AI Assistant</h3>
+              <button onClick={() => setShowAiModal(false)} className="text-gray-400 text-xl">x</button>
+            </div>
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Prompt</label>
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              rows={3}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              placeholder="Ask about sales strategy, inventory, pricing..."
+            />
+            <button
+              onClick={generateAiAssistant}
+              className="w-full mt-3 bg-black text-white py-2 rounded-lg text-xs font-bold"
+            >
+              {aiAssistantLoading ? "Generating..." : "Generate"}
+            </button>
+            {aiResponse ? (
+              <div className="mt-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                {aiResponse}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
