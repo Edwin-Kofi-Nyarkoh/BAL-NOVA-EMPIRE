@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   if (!auth.ok) return applyCors(auth.response)
   const user = auth.session.user as any
 
-  const proxied = await proxyToMicroservice(req, "core", "payments", "GET", {
+  const proxied = await proxyToMicroservice(req, "api", "payments", "GET", {
     "x-user-id": String(user?.id || ""),
     "x-user-role": "admin",
     "x-user-email": String(user?.email || "")

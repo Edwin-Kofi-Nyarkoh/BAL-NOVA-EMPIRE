@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   if (!auth.ok) return auth.response
   const user = auth.session.user as any
 
-  const proxied = await proxyToMicroservice(req, "core", "admin/pros", "GET", {
+  const proxied = await proxyToMicroservice(req, "api", "admin/pros", "GET", {
     "x-user-id": String(user?.id || ""),
     "x-user-role": "admin",
     "x-user-email": String(user?.email || "")
