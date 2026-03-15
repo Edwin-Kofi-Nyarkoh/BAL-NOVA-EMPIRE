@@ -43,7 +43,7 @@ export async function OPTIONS() {
 
 export async function GET(req: Request) {
   const proxied = await proxyToMicroservice(req, "api", "inventory", "GET").catch(() => null)
-  if (proxied) return applyCors(proxied)
+  if (proxied && proxied.status !== 404) return applyCors(proxied)
 
   const items = await prisma.inventoryItem.findMany({ orderBy: { createdAt: "desc" } })
   return Response.json({ items }, { headers: corsHeaders })

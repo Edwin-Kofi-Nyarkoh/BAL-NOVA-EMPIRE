@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     "x-user-role": "admin",
     "x-user-email": String(user?.email || "")
   }).catch(() => null)
-  if (proxied) return proxied
+  if (proxied && proxied.status !== 404) return proxied
 
   const portfolios = await prisma.proPortfolio.findMany({
     orderBy: { createdAt: "desc" }
