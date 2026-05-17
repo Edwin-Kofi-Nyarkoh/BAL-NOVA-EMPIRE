@@ -55,6 +55,7 @@ type StorefrontShellProps = {
   forcedVendorId?: string
   vendorPageHrefBase?: string
   hideHero?: boolean
+  initialProducts?: Product[]
 }
 
 function mapGuestItems(items: ReturnType<typeof readGuestCart>): CartItem[] {
@@ -72,13 +73,13 @@ function mapGuestItems(items: ReturnType<typeof readGuestCart>): CartItem[] {
   }))
 }
 
-export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors", hideHero = false }: StorefrontShellProps) {
+export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors", hideHero = false, initialProducts = [] }: StorefrontShellProps) {
   const dialog = useDialog()
   const searchParams = useSearchParams()
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<Product[]>(initialProducts)
   const [cart, setCart] = useState<CartItem[]>([])
   const [snapshots, setSnapshots] = useState<CartSnapshot[]>([])
-  const [brand, setBrand] = useState<StoreBrand>({ name: "Bal Nova Storefront", tagline: "Shop now, login at checkout" })
+  const [brand, setBrand] = useState<StoreBrand>({ name: "Bal Nova", tagline: "Global marketplace and service network" })
   const [isDark, setIsDark] = useState(false)
   const [query, setQuery] = useState("")
   const [showSuccess, setShowSuccess] = useState(false)
@@ -102,19 +103,21 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
         void syncSnapshots()
       } else {
         setIsAuthed(false)
-        setBrand({ name: "Bal Nova Storefront", tagline: "Shop now, login at checkout" })
+        setBrand({ name: "Bal Nova", tagline: "Global marketplace and service network" })
         setCart(mapGuestItems(readGuestCart()))
       }
     } catch {
       setIsAuthed(false)
-      setBrand({ name: "Bal Nova Storefront", tagline: "Shop now, login at checkout" })
+      setBrand({ name: "Bal Nova", tagline: "Global marketplace and service network" })
       setCart(mapGuestItems(readGuestCart()))
     }
   }
 
   async function syncInventory() {
     const data = await getJSON<{ items: Product[] }>("/api/inventory", { items: [] })
-    setProducts(Array.isArray(data.items) ? data.items : [])
+    if (Array.isArray(data.items) && data.items.length > 0) {
+      setProducts(data.items)
+    }
   }
 
   async function syncBrand() {
@@ -124,8 +127,8 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
       return
     }
     const me = await getJSON<{ user?: { name?: string | null; email?: string | null } }>("/api/me", {})
-    const name = me.user?.name || me.user?.email || "Bal Nova Storefront"
-    setBrand({ name, tagline: "Shop now, login at checkout" })
+    const name = me.user?.name || me.user?.email || "Bal Nova"
+    setBrand({ name, tagline: "Global marketplace and service network" })
   }
 
   async function syncSettings() {
@@ -361,9 +364,14 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100">
       <header className="bg-mynavy text-white shadow-md sticky top-0 z-20">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/">
-            <h1 className="font-bold text-lg">{brand.name}</h1>
-            <p className="text-[10px] text-gray-300">{brand.tagline}</p>
+          <Link href="/" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/15">
+              <img src="/empire-shield.svg" alt="Bal Nova" className="h-8 w-8" />
+            </span>
+            <span>
+              <h1 className="font-bold text-lg leading-none">{brand.name}</h1>
+              <p className="mt-1 text-[10px] text-gray-300">{brand.tagline}</p>
+            </span>
           </Link>
           <div className="flex items-center gap-3">
             <Link
@@ -411,7 +419,7 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
           <div className="rounded-2xl border border-gray-100 bg-gradient-to-r from-[#07142f] via-[#0a2147] to-[#132b57] p-6 text-white dark:border-gray-800">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300">Storefront</p>
             <h1 className="mt-3 text-3xl font-black md:text-4xl">
-              {activeVendor ? `${activeVendor.name}'s storefront` : "Command your supply chain."}
+              {activeVendor ? `${activeVendor.name}'s storefront` : "Bal Nova"}
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-slate-200">
               {activeVendor
