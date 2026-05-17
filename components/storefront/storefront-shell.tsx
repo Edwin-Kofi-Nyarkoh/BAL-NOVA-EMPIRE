@@ -79,7 +79,7 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [cart, setCart] = useState<CartItem[]>([])
   const [snapshots, setSnapshots] = useState<CartSnapshot[]>([])
-  const [brand, setBrand] = useState<StoreBrand>({ name: "Bal Nova", tagline: "Global marketplace and service network" })
+  const [brand, setBrand] = useState<StoreBrand>({ name: "Bal-Nova", tagline: "Global marketplace and service network" })
   const [isDark, setIsDark] = useState(false)
   const [query, setQuery] = useState("")
   const [showSuccess, setShowSuccess] = useState(false)
@@ -103,12 +103,12 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
         void syncSnapshots()
       } else {
         setIsAuthed(false)
-        setBrand({ name: "Bal Nova", tagline: "Global marketplace and service network" })
+        setBrand({ name: "Bal-Nova", tagline: "Global marketplace and service network" })
         setCart(mapGuestItems(readGuestCart()))
       }
     } catch {
       setIsAuthed(false)
-      setBrand({ name: "Bal Nova", tagline: "Global marketplace and service network" })
+      setBrand({ name: "Bal-Nova", tagline: "Global marketplace and service network" })
       setCart(mapGuestItems(readGuestCart()))
     }
   }
@@ -127,7 +127,7 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
       return
     }
     const me = await getJSON<{ user?: { name?: string | null; email?: string | null } }>("/api/me", {})
-    const name = me.user?.name || me.user?.email || "Bal Nova"
+    const name = me.user?.name || me.user?.email || "Bal-Nova"
     setBrand({ name, tagline: "Global marketplace and service network" })
   }
 
@@ -366,7 +366,7 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/15">
-              <img src="/empire-shield.svg" alt="Bal Nova" className="h-8 w-8" />
+              <img src="/empire-shield.svg" alt="Bal-Nova" className="h-8 w-8" />
             </span>
             <span>
               <h1 className="font-bold text-lg leading-none">{brand.name}</h1>
@@ -417,9 +417,8 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
 
         {hideHero ? null : (
           <div className="rounded-2xl border border-gray-100 bg-gradient-to-r from-[#07142f] via-[#0a2147] to-[#132b57] p-6 text-white dark:border-gray-800">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-300">Storefront</p>
             <h1 className="mt-3 text-3xl font-black md:text-4xl">
-              {activeVendor ? `${activeVendor.name}'s storefront` : "Bal Nova"}
+              {activeVendor ? activeVendor.name : "Bal-Nova"}
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-slate-200">
               {activeVendor
@@ -464,7 +463,7 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
                     />
                   </div>
                 ) : null}
-                <div className="text-xs text-gray-400">{p.brand || "Bal Nova"}</div>
+                <div className="text-xs text-gray-400">{p.brand || "Bal-Nova"}</div>
                 <div className="font-bold">{p.name}</div>
                 {p.desc ? <div className="text-[11px] text-gray-500 mt-1">{p.desc}</div> : null}
                 {p.vendor ? (
@@ -478,7 +477,7 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
                       </span>
                       <div>
                         <div className="font-bold">Sold by {p.vendor.name}</div>
-                        <div className="text-[10px] opacity-80">Vendor tier {p.vendor.tier} - View storefront</div>
+                        <div className="text-[10px] opacity-80">Vendor tier {p.vendor.tier} - View vendor</div>
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
@@ -487,7 +486,7 @@ export function StorefrontShell({ forcedVendorId, vendorPageHrefBase = "/vendors
                     </div>
                   </Link>
                 ) : (
-                  <div className="mt-3 text-[10px] text-gray-400">Fulfilled by Bal Nova network</div>
+                  <div className="mt-3 text-[10px] text-gray-400">Fulfilled by Bal-Nova network</div>
                 )}
                 <div className="mt-1 text-[11px] text-gray-400">{getProductSignal(p)}</div>
                 <div className="text-sm text-myamber font-bold">{formatNovaCredits(p.price)}</div>

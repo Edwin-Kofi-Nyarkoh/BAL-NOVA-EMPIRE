@@ -80,10 +80,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return Response.json({ error: "No updates provided" }, { status: 400, headers: corsHeaders })
   }
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data,
-    select: { id: true, name: true, email: true, role: true, approvalStatus: true, createdAt: true }
+  const updated = await prisma.$transaction(async (tx) => {
+    const next = await tx.user.update({
+      where: { id },
+      data,
+      select: { id: true, name: true, email: true, role: true, approvalStatus: true, createdAt: true }
+    })
+
+    if (approvalStatus && next.role === "pro") {
+      await tx.artisanOnboarding.updateMany({
+        where: { userId: id },
+        data: { status: approvalStatus === "approved" ? "active" : approvalStatus }
+      })
+    }
+
+    return next
   })
 
   await logAuditEvent({

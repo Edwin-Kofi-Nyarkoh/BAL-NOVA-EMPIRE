@@ -20,7 +20,37 @@ export async function POST(req: Request) {
     name: z.string().trim().min(1).max(120),
     email: z.string().email().max(190),
     password: z.string().min(8).max(128),
-    role: z.string().optional()
+    role: z.string().optional(),
+    artisanOnboarding: z.object({
+      track: z.enum(["individual", "corporate"]),
+      legalName: z.string().trim().max(160).optional(),
+      phone: z.string().trim().max(40).optional(),
+      ghanaCardNumber: z.string().trim().max(60).optional(),
+      ghanaCardFrontUrl: z.string().trim().max(500).optional(),
+      ghanaCardBackUrl: z.string().trim().max(500).optional(),
+      livenessSelfieUrl: z.string().trim().max(500).optional(),
+      guarantorName: z.string().trim().max(160).optional(),
+      guarantorPhone: z.string().trim().max(40).optional(),
+      guarantorIdNumber: z.string().trim().max(80).optional(),
+      primaryTrade: z.string().trim().max(100).optional(),
+      subSpecialties: z.array(z.string().trim().max(80)).max(12).optional(),
+      operationalBase: z.string().trim().max(220).optional(),
+      momoNumber: z.string().trim().max(40).optional(),
+      payoutAccountName: z.string().trim().max(160).optional(),
+      headshotUrl: z.string().trim().max(500).optional(),
+      diagnosticFee: z.coerce.number().min(0).max(100000).optional(),
+      bio: z.string().trim().max(250).optional(),
+      workPhotos: z.array(z.string().trim().max(500)).max(10).optional(),
+      companyName: z.string().trim().max(180).optional(),
+      rgdCertificateUrl: z.string().trim().max(500).optional(),
+      directorCardUrl: z.string().trim().max(500).optional(),
+      corporateTin: z.string().trim().max(80).optional(),
+      officeLocation: z.string().trim().max(220).optional(),
+      technicianCount: z.coerce.number().int().min(1).max(10000).optional(),
+      tradeCategories: z.array(z.string().trim().max(80)).max(12).optional(),
+      payoutAccount: z.string().trim().max(160).optional(),
+      logoUrl: z.string().trim().max(500).optional()
+    }).optional()
   })
   const parsed = schema.safeParse(body)
   if (!parsed.success) {
@@ -49,6 +79,11 @@ export async function POST(req: Request) {
   const passwordHash = await bcrypt.hash(password, 10)
   let created
   try {
+    const artisan = finalRole === "pro" ? parsed.data.artisanOnboarding : undefined
+    if (finalRole === "pro" && !artisan?.track) {
+      return Response.json({ error: "Artisan signup requires the verification packet." }, { status: 400 })
+    }
+
     created = await prisma.user.create({
       data: {
         name,
@@ -57,7 +92,50 @@ export async function POST(req: Request) {
         role: finalRole,
         approvalStatus,
         approvedAt: approvalStatus === "approved" ? new Date() : null,
-        approvedById: approvalStatus === "approved" && sessionRole === "admin" ? (session?.user as any)?.id : null
+        approvedById: approvalStatus === "approved" && sessionRole === "admin" ? (session?.user as any)?.id : null,
+        ...(artisan
+          ? {
+              artisanOnboarding: {
+                create: {
+                  track: artisan.track,
+                  status: approvalStatus === "approved" ? "active" : "pending",
+                  legalName: artisan.legalName || name,
+                  phone: artisan.phone || null,
+                  ghanaCardNumber: artisan.ghanaCardNumber || null,
+                  ghanaCardFrontUrl: artisan.ghanaCardFrontUrl || null,
+                  ghanaCardBackUrl: artisan.ghanaCardBackUrl || null,
+                  livenessSelfieUrl: artisan.livenessSelfieUrl || null,
+                  guarantorName: artisan.guarantorName || null,
+                  guarantorPhone: artisan.guarantorPhone || null,
+                  guarantorIdNumber: artisan.guarantorIdNumber || null,
+                  primaryTrade: artisan.primaryTrade || null,
+                  subSpecialties: artisan.subSpecialties || [],
+                  operationalBase: artisan.operationalBase || null,
+                  momoNumber: artisan.momoNumber || null,
+                  payoutAccountName: artisan.payoutAccountName || null,
+                  headshotUrl: artisan.headshotUrl || null,
+                  diagnosticFee: Number(artisan.diagnosticFee ?? (artisan.track === "corporate" ? 150 : 50)),
+                  bio: artisan.bio || null,
+                  workPhotos: artisan.workPhotos || [],
+                  companyName: artisan.companyName || null,
+                  rgdCertificateUrl: artisan.rgdCertificateUrl || null,
+                  directorCardUrl: artisan.directorCardUrl || null,
+                  corporateTin: artisan.corporateTin || null,
+                  officeLocation: artisan.officeLocation || null,
+                  technicianCount: artisan.technicianCount || null,
+                  tradeCategories: artisan.tradeCategories || [],
+                  payoutAccount: artisan.payoutAccount || null,
+                  logoUrl: artisan.logoUrl || null,
+                  commissionRate: 0.1
+                }
+              },
+              proPortfolio: {
+                create: {
+                  summary: artisan.bio || `${artisan.primaryTrade || "Service Pro"} awaiting Bal Nova approval.`
+                }
+              }
+            }
+          : {})
       }
     })
   } catch (error: any) {

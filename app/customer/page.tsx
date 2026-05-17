@@ -64,6 +64,11 @@ type Pro = {
   name?: string | null
   summary?: string | null
   teamCount?: number
+  track?: string | null
+  primaryTrade?: string | null
+  location?: string | null
+  diagnosticFee?: number
+  avatarUrl?: string | null
 }
 
 type CustomerProfile = {
@@ -105,6 +110,10 @@ export default function CustomerHome() {
   const [apiKey, setApiKey] = useState("")
   const [showServiceModal, setShowServiceModal] = useState(false)
   const [serviceDesc, setServiceDesc] = useState("")
+  const [serviceTitle, setServiceTitle] = useState("")
+  const [serviceTrade, setServiceTrade] = useState("")
+  const [selectedPro, setSelectedPro] = useState<Pro | null>(null)
+  const [hireSubmitting, setHireSubmitting] = useState(false)
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [editingAddress, setEditingAddress] = useState<Address | null>(null)
   const [addressLabel, setAddressLabel] = useState("")
@@ -386,58 +395,83 @@ export default function CustomerHome() {
   async function triggerPanicProtocol() {
     if (!panicType) return
     const location = region === "GH" ? "Accra emergency zone" : "Lagos emergency zone"
-    const response = await postJSON<{ orders?: Order[]; error?: string }>(
-      "/api/orders",
+    setHireSubmitting(true)
+    const response = await postJSON<{ request?: any; link?: string; error?: string }>(
+      "/api/hire/requests",
       {
-        order: {
-          item: `Blitz ${panicType} emergency`,
-          price: 50,
-          status: "Blitz",
-          origin: location
-        }
+        title: `Blitz ${panicType} emergency`,
+        description: `Emergency ${panicType} help needed immediately.`,
+        trade: panicType,
+        urgency: "panic",
+        diagnosticFee: 50,
+        location
       },
       {}
     )
+    setHireSubmitting(false)
     if (response?.error) {
-      setPanicStatus("Could not submit the emergency request. Please try again.")
+      setPanicStatus(response.error)
       setPanicResults([])
+      return
+    }
+    if (response?.link) {
+      window.location.href = response.link
       return
     }
     setPanicStatus(`Blitz request sent for ${panicType} assistance in ${region === "GH" ? "Accra" : "Lagos"}.`)
     setPanicResults([
-      "Your request is now visible to nearby Service Pros as a premium Blitz lead.",
-      "A Pro must spend 25 Nova Credits to unlock your contact and exact location."
+      "Your diagnostic payment record has been created in escrow.",
+      "After payment clears, nearby Service Pros can accept and quote the job."
     ])
     await syncOrders()
   }
 
-  async function submitServiceRequest() {
+  async function submitServiceRequest(pro?: Pro) {
     const desc = serviceDesc.trim()
     if (!desc) {
       await dialog.alert("Describe the job before submitting.")
       return
     }
-    const response = await postJSON<{ orders?: Order[]; error?: string }>(
-      "/api/orders",
+    setHireSubmitting(true)
+    const response = await postJSON<{ request?: any; link?: string; error?: string }>(
+      "/api/hire/requests",
       {
-        order: {
-          item: desc,
-          price: 0,
-          status: "Open",
-          origin: region === "GH" ? "Accra" : "Lagos"
-        }
+        title: serviceTitle.trim() || pro?.primaryTrade || "Service request",
+        description: desc,
+        polishedDescription: desc,
+        trade: serviceTrade.trim() || pro?.primaryTrade || undefined,
+        proId: pro?.id,
+        urgency: "standard",
+        diagnosticFee: Number(pro?.diagnosticFee ?? 50),
+        location: region === "GH" ? "Accra" : "Lagos"
       },
       {}
     )
+    setHireSubmitting(false)
     if (response?.error) {
-      await dialog.alert("Could not submit this service request yet.")
+      await dialog.alert(response.error)
+      return
+    }
+    if (response?.link) {
+      window.location.href = response.link
       return
     }
     setShowServiceModal(false)
     setServiceDesc("")
+    setServiceTitle("")
+    setServiceTrade("")
+    setSelectedPro(null)
     setServiceView("browse")
     await syncOrders()
-    await dialog.alert("Your service request is live. Verified Pros can now unlock the lead.")
+    await dialog.alert("Your hire request is saved. It opens to verified Pros after diagnostic payment clears.")
+  }
+
+  async function polishServiceRequest() {
+    const desc = serviceDesc.trim()
+    if (!desc || !apiKey) return
+    const prompt = `Rewrite this customer artisan job request clearly and professionally in under 90 words. Keep the facts, do not invent details: ${desc}`
+    const text = await callGemini(apiKey, prompt)
+    if (text.trim()) setServiceDesc(text.trim())
   }
 
   async function resetSimulation() {
@@ -741,10 +775,11 @@ export default function CustomerHome() {
                         <div className="relative z-10 flex justify-center mb-6">
                           <button
                             onClick={triggerPanicProtocol}
+                            disabled={hireSubmitting}
                             className="w-40 h-40 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-[0_0_40px_rgba(239,68,68,0.6)] flex flex-col items-center justify-center text-white transition-transform active:scale-95 hover:scale-105 border-4 border-red-400"
                           >
                             <Bolt className="h-10 w-10 mb-2" />
-                            <span className="font-bold text-lg">SUMMON</span>
+                            <span className="font-bold text-lg">{hireSubmitting ? "SENDING" : "SUMMON"}</span>
                           </button>
                         </div>
                         <div className="relative z-10 grid grid-cols-3 gap-2 max-w-xs mx-auto">
@@ -785,9 +820,12 @@ export default function CustomerHome() {
                     <div className="bg-gradient-to-r from-blue-600 to-mynavy p-6 rounded-2xl shadow-lg mb-8 text-white relative overflow-hidden">
                       <div className="relative z-10">
                         <h2 className="text-2xl font-bold mb-2">Post a Standard Job</h2>
-                        <p className="text-blue-100 mb-4 text-sm">Get quotes within 24 hours. Free to post.</p>
+                        <p className="text-blue-100 mb-4 text-sm">Pay the Pro diagnostic fee into escrow, then receive a final quote.</p>
                         <button
-                          onClick={() => setShowServiceModal(true)}
+                          onClick={() => {
+                            setSelectedPro(null)
+                            setShowServiceModal(true)
+                          }}
                           className="bg-white text-mynavy px-6 py-2 rounded-full font-bold shadow hover:bg-gray-100 transition text-sm"
                         >
                           Create Listing
@@ -805,11 +843,35 @@ export default function CustomerHome() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {pros.map((p) => (
                             <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-                              <div className="font-bold">{p.name || "Verified Pro"}</div>
-                              <div className="text-xs text-gray-400">{p.summary || "No profile summary yet."}</div>
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="font-bold">{p.name || "Verified Pro"}</div>
+                                  <div className="text-xs text-gray-400">{p.summary || "No profile summary yet."}</div>
+                                </div>
+                                <span className="rounded-full bg-myamber/10 px-2 py-1 text-[10px] font-bold text-myamber">
+                                  GHS {Number(p.diagnosticFee || 0).toFixed(0)}
+                                </span>
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                                {p.primaryTrade ? <span>{p.primaryTrade}</span> : null}
+                                {p.location ? <span>{p.location}</span> : null}
+                                {p.track ? <span>{p.track}</span> : null}
+                              </div>
                               {typeof p.teamCount === "number" ? (
                                 <div className="text-[10px] text-gray-400 mt-2">Team size: {p.teamCount}</div>
                               ) : null}
+                              <button
+                                onClick={() => {
+                                  setServiceTitle(`Hire ${p.name || "Verified Pro"}`)
+                                  setServiceTrade(p.primaryTrade || "")
+                                  setServiceDesc("")
+                                  setSelectedPro(p)
+                                  setShowServiceModal(true)
+                                }}
+                                className="mt-4 w-full rounded-lg bg-mynavy px-4 py-2 text-xs font-bold text-white hover:bg-mynavy/90"
+                              >
+                                Hire this Pro
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1178,6 +1240,26 @@ export default function CustomerHome() {
               <h3 className="font-bold text-lg dark:text-white">Request Service</h3>
               <button onClick={() => setShowServiceModal(false)} className="text-gray-400 text-xl">x</button>
             </div>
+            {selectedPro ? (
+              <div className="mb-3 rounded-lg border border-myamber/20 bg-myamber/5 p-3 text-xs text-gray-600 dark:text-gray-300">
+                Hiring <span className="font-bold text-mynavy dark:text-white">{selectedPro.name || "Verified Pro"}</span>.
+                Diagnostic escrow: <span className="font-bold">GHS {Number(selectedPro.diagnosticFee || 0).toFixed(0)}</span>.
+              </div>
+            ) : null}
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Job Title</label>
+            <input
+              value={serviceTitle}
+              onChange={(e) => setServiceTitle(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white mb-3"
+              placeholder="Blocked sink, AC repair, wiring..."
+            />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Trade</label>
+            <input
+              value={serviceTrade}
+              onChange={(e) => setServiceTrade(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white mb-3"
+              placeholder="Plumber, Electrician..."
+            />
             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">Job Description</label>
             <textarea
               value={serviceDesc}
@@ -1186,11 +1268,22 @@ export default function CustomerHome() {
               rows={3}
               placeholder="Describe your issue..."
             />
+            {apiKey ? (
+              <button
+                type="button"
+                onClick={polishServiceRequest}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <WandSparkles className="h-3.5 w-3.5" />
+                AI Polish
+              </button>
+            ) : null}
             <button
-              onClick={submitServiceRequest}
+              onClick={() => submitServiceRequest(selectedPro || undefined)}
+              disabled={hireSubmitting}
               className="w-full mt-4 bg-mynavy text-white py-3 rounded-xl font-bold"
             >
-              Submit Request
+              {hireSubmitting ? "Submitting..." : "Submit Request"}
             </button>
           </div>
         </div>
