@@ -6,11 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Shield, Zap, MessageCircle, TriangleAlert, Ruler, Copy, X } from "lucide-react"
 import { getJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
-import { Rajdhani, JetBrains_Mono } from "next/font/google"
 import { useRiderDashboardQuery } from "@/lib/query"
-
-const rajdhani = Rajdhani({ subsets: ["latin"], weight: ["500", "600", "700"] })
-const jetbrains = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "800"] })
 
 type RiderState = {
   id: string
@@ -465,7 +461,7 @@ export default function RiderPage() {
   const showRadar = activeCount === 0
 
   return (
-    <div className={`${rajdhani.className} ${jetbrains.className} h-screen bg-[#050b14] text-slate-200 overflow-hidden`}>
+    <div className="font-rider-hud h-screen bg-[#050b14] text-slate-200 overflow-hidden">
       <div className="fixed inset-0 pointer-events-none bg-[linear-gradient(rgba(0,240,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,240,255,0.03)_1px,transparent_1px)] bg-[length:40px_40px]" />
 
       <header

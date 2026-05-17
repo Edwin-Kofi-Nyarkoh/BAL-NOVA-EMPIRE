@@ -44,14 +44,19 @@ export const authConfig: NextAuthOptions = {
         token.id = (user as any).id
         token.approvalStatus = (user as any).approvalStatus || "approved"
       } else if (token?.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: String(token.email).toLowerCase() },
-          select: { id: true, role: true, approvalStatus: true }
-        })
-        if (dbUser) {
-          token.id = dbUser.id
-          token.role = dbUser.role || "user"
-          token.approvalStatus = dbUser.approvalStatus || "approved"
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: String(token.email).toLowerCase() },
+            select: { id: true, role: true, approvalStatus: true }
+          })
+          if (dbUser) {
+            token.id = dbUser.id
+            token.role = dbUser.role || "user"
+            token.approvalStatus = dbUser.approvalStatus || "approved"
+          }
+        } catch (error) {
+          console.error("next-auth jwt refresh failed", error)
+          // Preserve the last good token when the database has a transient issue.
         }
       }
       return token

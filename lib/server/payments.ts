@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/server/prisma"
 import { notifyPaymentReceipt } from "@/lib/server/notifications"
+import { postNovaCreditTransaction } from "@/lib/server/nova-credits"
 
 type VerifiedData = {
   id: number | string
@@ -44,23 +45,41 @@ export async function syncPaymentFromPaystack(data: VerifiedData) {
 
   const items = typeof payment.items === "object" && payment.items ? (payment.items as any) : {}
   if (items.type === "PRO_CREDITS") {
-    await prisma.paymentIntent.update({
-      where: { id: payment.id },
-      data: {
-        status: "successful",
-        gatewayId: String(data.id),
-        completedAt: new Date()
-      }
-    })
+    const credits = Math.round(Number(items.credits || payment.amount || 0))
 
-    await prisma.financeLedger.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.paymentIntent.update({
+        where: { id: payment.id },
+        data: {
+          status: "successful",
+          gatewayId: String(data.id),
+          completedAt: new Date()
+        }
+      })
+
+      await postNovaCreditTransaction(tx as any, {
         userId: payment.userId,
-        type: "CREDIT",
-        amount: Number(payment.amount || 0),
-        status: "posted",
-        note: "Pro credit top-up"
-      }
+        amount: credits,
+        type: "topup",
+        source: "paystack",
+        reference: payment.txRef,
+        note: "Pro credit top-up",
+        metadata: {
+          paymentIntentId: payment.id,
+          amount: Number(payment.amount || 0),
+          currency: payment.currency
+        }
+      })
+
+      await tx.financeLedger.create({
+        data: {
+          userId: payment.userId,
+          type: "CREDIT",
+          amount: Number(payment.amount || 0),
+          status: "posted",
+          note: "Pro credit top-up"
+        }
+      })
     })
 
     const user = await prisma.user.findUnique({ where: { id: payment.userId } })

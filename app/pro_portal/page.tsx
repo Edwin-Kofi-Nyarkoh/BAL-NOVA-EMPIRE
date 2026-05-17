@@ -23,6 +23,7 @@ import { cn, formatCurrency } from "@/lib/utils"
 import { getJSON, postJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
 import { useDialog } from "@/components/ui/dialog-service"
+import Link from "next/link"
 
 type Job = {
   id: string
@@ -32,6 +33,22 @@ type Job = {
   createdAt?: string
   acceptedAt?: string | null
   status?: string
+  unlocked?: boolean
+  creditCost?: number
+  isBlitz?: boolean
+  contactDeadline?: string | null
+  customer?: {
+    name?: string | null
+    email?: string | null
+    phone?: string | null
+  } | null
+  exactLocation?: {
+    origin?: string | null
+    originLat?: number | null
+    originLng?: number | null
+    dropLat?: number | null
+    dropLng?: number | null
+  } | null
 }
 
 type Chat = {
@@ -111,17 +128,8 @@ export default function ProPortalPage() {
   }
 
   async function syncJobs() {
-    const data = await getJSON<{ orders: { id: string; item: string; price: number; origin?: string | null; createdAt: string; status?: string }[] }>("/api/orders", { orders: [] })
-    const jobs = (Array.isArray(data.orders) ? data.orders : []).map((o) => ({
-      id: o.id,
-      title: o.item,
-      budget: o.price,
-      location: o.origin || "Accra",
-      createdAt: o.createdAt,
-      acceptedAt: (o as any).acceptedAt || null,
-      status: o.status || "Pending"
-    }))
-    setMarketJobs(jobs)
+    const data = await getJSON<{ leads: Job[] }>("/api/pro/leads", { leads: [] })
+    setMarketJobs(Array.isArray(data.leads) ? data.leads : [])
   }
 
   async function syncPortfolio() {
@@ -282,18 +290,30 @@ export default function ProPortalPage() {
   }
 
   async function acceptJob(jobId: string) {
-    const res = await requestJSON<{ order?: { status: string; acceptedAt?: string | null } }>(
-      `/api/orders/${jobId}`,
-      { status: "Accepted" },
-      "PATCH",
-      {}
-    )
-    if (res?.order) {
-      setMarketJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status: res.order?.status, acceptedAt: res.order?.acceptedAt || null } : j)))
-      pushToast("Job accepted")
+    const res = await fetch(`/api/pro/leads/${encodeURIComponent(jobId)}/unlock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    })
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok) {
+      const message =
+        res.status === 402
+          ? `Need ${data?.requiredCredits || "more"} Nova Credits to unlock this lead.`
+          : data?.error || "Unable to unlock lead."
+      pushToast(message, "error")
       return
     }
-    pushToast("Unable to accept job.", "error")
+
+    if (typeof data?.credits === "number") setCredits(data.credits)
+    if (data?.lead) {
+      setMarketJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, ...data.lead } : j)))
+      void syncWallet()
+      pushToast("Lead unlocked. Contact the customer within 15 minutes.")
+      return
+    }
+
+    pushToast("Lead unlocked, but details were not returned.", "error")
   }
 
   function simulateDirectLead() {
@@ -395,14 +415,16 @@ export default function ProPortalPage() {
         )}
       >
         <div className="p-6 flex flex-col items-center border-b border-white/10">
-          <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-3 border-2 border-emerald-400 relative">
-            <Shield className="w-7 h-7 text-emerald-400" />
-            <div className="absolute -top-1 -right-1 bg-emerald-400 text-mynavy text-[9px] font-bold px-2 py-0.5 rounded-full">
-              {tier === 1 ? "APP." : tier === 2 ? "EXPERT" : "AGENCY"}
+          <Link href="/" className="flex flex-col items-center">
+            <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-3 border-2 border-emerald-400 relative">
+              <Shield className="w-7 h-7 text-emerald-400" />
+              <div className="absolute -top-1 -right-1 bg-emerald-400 text-mynavy text-[9px] font-bold px-2 py-0.5 rounded-full">
+                {tier === 1 ? "APP." : tier === 2 ? "EXPERT" : "AGENCY"}
+              </div>
             </div>
-          </div>
-          <h1 className="font-bold text-xl tracking-wide">BAL NOVA</h1>
-          <p className="text-xs text-emerald-300/90">Service Provider</p>
+            <h1 className="font-bold text-xl tracking-wide">BAL NOVA</h1>
+            <p className="text-xs text-emerald-300/90">Service Provider</p>
+          </Link>
           <div className="text-xs text-gray-300 mt-2">Credits: {credits}</div>
         </div>
 
@@ -462,7 +484,7 @@ export default function ProPortalPage() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6 scroll-smooth">
           {activeTab === "dashboard" ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -550,7 +572,7 @@ export default function ProPortalPage() {
                 <span className="text-xs bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded">Live Feed</span>
               </div>
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl mb-4 text-xs text-blue-800 dark:text-blue-200">
-                Direct requests are highlighted in purple. 10 Credits = 1 Lead.
+                Standard leads cost 10 Nova Credits. Blitz leads cost 25. Unlocked leads are non-refundable and start a 15-minute contact SLA.
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {marketJobs.length === 0 ? (
@@ -562,6 +584,9 @@ export default function ProPortalPage() {
                       <div className="text-xs text-gray-400">{j.location}</div>
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-sm text-myamber font-bold">{formatCurrency(j.budget)}</span>
+                        <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full", j.isBlitz ? "bg-red-500/15 text-red-600" : "bg-blue-500/15 text-blue-600")}>
+                          {j.creditCost || 10} Credits
+                        </span>
                         <span
                           className={cn(
                             "text-[10px] font-bold px-2 py-1 rounded-full",
@@ -573,15 +598,33 @@ export default function ProPortalPage() {
                           {j.status}
                         </span>
                       </div>
+                      {j.unlocked ? (
+                        <div className="mt-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs text-emerald-700 dark:text-emerald-200">
+                          <div className="font-bold">Customer unlocked</div>
+                          <div>{j.customer?.name || "Customer"}</div>
+                          {j.customer?.phone ? <div>Phone: {j.customer.phone}</div> : null}
+                          {j.customer?.email ? <div>Email: {j.customer.email}</div> : null}
+                          {j.exactLocation?.origin ? <div>Location: {j.exactLocation.origin}</div> : null}
+                          {typeof j.exactLocation?.dropLat === "number" && typeof j.exactLocation?.dropLng === "number" ? (
+                            <div>
+                              GPS: {j.exactLocation.dropLat.toFixed(5)}, {j.exactLocation.dropLng.toFixed(5)}
+                            </div>
+                          ) : null}
+                          {j.contactDeadline ? (
+                            <div className="mt-1 text-[10px]">Contact by {new Date(j.contactDeadline).toLocaleTimeString()}</div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="mt-3 flex items-center gap-2">
                         <button
                           onClick={() => acceptJob(j.id)}
+                          disabled={j.unlocked}
                           className="px-3 py-2 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-200 hover:bg-emerald-500/20"
                         >
-                          Accept
+                          {j.unlocked ? "Unlocked" : `Unlock Lead`}
                         </button>
                         {j.acceptedAt ? (
-                          <span className="text-[10px] text-gray-400">Accepted {new Date(j.acceptedAt).toLocaleString()}</span>
+                          <span className="text-[10px] text-gray-400">Unlocked {new Date(j.acceptedAt).toLocaleString()}</span>
                         ) : null}
                       </div>
                     </div>
@@ -680,7 +723,7 @@ export default function ProPortalPage() {
           ) : null}
 
           {activeTab === "portfolio" ? (
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 max-w-3xl mx-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 max-w-6xl mx-auto">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-bold text-xl dark:text-white">Professional Portfolio</h3>
                 <button
@@ -705,7 +748,7 @@ export default function ProPortalPage() {
           ) : null}
 
           {activeTab === "wallet" ? (
-            <div className="space-y-6 max-w-3xl">
+            <div className="space-y-6 max-w-6xl">
               <div className="bg-gradient-to-r from-[#0A2342] to-[#FFBF00] rounded-xl p-6 text-white shadow-lg">
                 <h2 className="text-4xl font-black mb-4">{credits} Pts</h2>
                 <button
@@ -728,7 +771,7 @@ export default function ProPortalPage() {
                           <div className="text-[10px] text-gray-400">{new Date(h.createdAt).toLocaleString()}</div>
                         </div>
                         <span className={cn("font-mono", h.amount >= 0 ? "text-emerald-500" : "text-red-500")}>
-                          {formatCurrency(Math.abs(h.amount))}
+                          {h.amount > 0 ? "+" : "-"}{Math.abs(h.amount)} Credits
                         </span>
                       </div>
                     ))
@@ -739,7 +782,7 @@ export default function ProPortalPage() {
           ) : null}
 
           {activeTab === "team" ? (
-            <div className="space-y-4 max-w-3xl">
+            <div className="space-y-4 max-w-6xl">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-xl dark:text-white">Agency Team</h3>

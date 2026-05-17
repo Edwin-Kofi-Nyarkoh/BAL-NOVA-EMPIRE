@@ -1,7 +1,7 @@
 // app/customer-data/page.tsx
 "use client"
 
-import { useMemo } from "react"
+import { useState } from "react"
 import { AdminShell } from "@/components/dashboard/admin-shell"
 import { Card, CardContent } from "@/components/ui/card"
 import { useOrdersQuery, useUsersQuery } from "@/lib/query"
@@ -13,41 +13,36 @@ export default function CustomerDataPage() {
   const users = usersQuery.data || []
   const orders = ordersQuery.data || []
   const status = usersQuery.isError || ordersQuery.isError ? "error" : "idle"
-  const now = Date.now()
+  const [cutoff7d] = useState(() => Date.now() - 7 * 24 * 60 * 60 * 1000)
 
   const totalUsers = users.length
   const totalOrders = orders.length
   const totalRevenue = orders.reduce((sum, o) => sum + o.price, 0)
 
-  const newUsers7d = useMemo(() => {
-    const cutoff = now - 7 * 24 * 60 * 60 * 1000
-    return users.filter((u) => new Date(u.createdAt).getTime() >= cutoff).length
-  }, [users, now])
+  const newUsers7d = users.filter((u) => new Date(u.createdAt).getTime() >= cutoff7d).length
 
-  const topCustomers = useMemo(() => {
-    const counts = new Map<string, { count: number; spend: number }>()
-    orders.forEach((o) => {
-      if (!o.userId) return
-      const entry = counts.get(o.userId) || { count: 0, spend: 0 }
-      entry.count += 1
-      entry.spend += o.price
-      counts.set(o.userId, entry)
-    })
-    const userMap = new Map(users.map((u) => [u.id, u]))
-    return Array.from(counts.entries())
-      .map(([userId, stats]) => ({
-        userId,
-        name: userMap.get(userId)?.name || userMap.get(userId)?.email || "Unknown",
-        count: stats.count,
-        spend: stats.spend
-      }))
-      .sort((a, b) => b.spend - a.spend)
-      .slice(0, 6)
-  }, [orders, users])
+  const counts = new Map<string, { count: number; spend: number }>()
+  orders.forEach((o) => {
+    if (!o.userId) return
+    const entry = counts.get(o.userId) || { count: 0, spend: 0 }
+    entry.count += 1
+    entry.spend += o.price
+    counts.set(o.userId, entry)
+  })
 
-  const recentUsers = useMemo(() => users.slice(0, 6), [users])
-  const userMap = useMemo(() => new Map(users.map((u) => [u.id, u.name || u.email])), [users])
-  const recentOrders = useMemo(() => orders.slice(0, 10), [orders])
+  const userMap = new Map(users.map((u) => [u.id, u.name || u.email]))
+  const userRecordMap = new Map(users.map((u) => [u.id, u]))
+  const topCustomers = Array.from(counts.entries())
+    .map(([userId, stats]) => ({
+      userId,
+      name: userRecordMap.get(userId)?.name || userRecordMap.get(userId)?.email || "Unknown",
+      count: stats.count,
+      spend: stats.spend
+    }))
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 6)
+  const recentUsers = users.slice(0, 6)
+  const recentOrders = orders.slice(0, 10)
 
   return (
     <AdminShell title="Customer Data" subtitle="Profiles, segments, and retention signals">

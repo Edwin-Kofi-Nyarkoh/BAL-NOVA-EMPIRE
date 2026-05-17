@@ -484,7 +484,7 @@ export function AdminShell({ title, subtitle, children }: AdminShellProps) {
           </div>
         </header>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth relative">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6 scroll-smooth relative">
           <div className="mb-4">
             <OperationalAlerts />
           </div>

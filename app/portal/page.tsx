@@ -2,6 +2,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
+import Link from "next/link"
 import {
   LayoutDashboard,
   Boxes,
@@ -28,6 +29,9 @@ type Product = {
   name: string
   price: number
   baseStock?: number
+  brand?: string | null
+  desc?: string | null
+  imageUrl?: string | null
 }
 
 type Order = {
@@ -50,6 +54,11 @@ type VendorProfile = {
   name: string
   initials: string
   tier: number
+  userId?: string
+  bio?: string | null
+  contactPhone?: string | null
+  contactEmail?: string | null
+  businessAddress?: string | null
 }
 
 type TabKey = "dashboard" | "inventory" | "orders" | "wallet" | "qc" | "settings"
@@ -62,21 +71,43 @@ export default function VendorPortalPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [qcLogs, setQcLogs] = useState<string[]>([])
   const [tier, setTier] = useState<number>(1)
-  const [profile, setProfile] = useState<VendorProfile>({ name: "", initials: "", tier: 1 })
+  const [profile, setProfile] = useState<VendorProfile>({
+    name: "",
+    initials: "",
+    tier: 1,
+    userId: "",
+    bio: "",
+    contactPhone: "",
+    contactEmail: "",
+    businessAddress: ""
+  })
   const [isDark, setIsDark] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPickupModal, setShowPickupModal] = useState(false)
   const [showCharterModal, setShowCharterModal] = useState(false)
   const [showQcModal, setShowQcModal] = useState(false)
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileMessage, setProfileMessage] = useState("")
   const [newProductName, setNewProductName] = useState("")
+  const [newProductBrand, setNewProductBrand] = useState("")
   const [newProductPrice, setNewProductPrice] = useState("")
   const [newProductStock, setNewProductStock] = useState("")
+  const [newProductDesc, setNewProductDesc] = useState("")
+  const [newProductImageFile, setNewProductImageFile] = useState<File | null>(null)
+  const [newProductImagePreview, setNewProductImagePreview] = useState<string | null>(null)
+  const [editProductImageFile, setEditProductImageFile] = useState<File | null>(null)
+  const [editProductImagePreview, setEditProductImagePreview] = useState<string | null>(null)
+  const [editProductImageUrl, setEditProductImageUrl] = useState("")
   const [aiReport, setAiReport] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
+  const [productSaving, setProductSaving] = useState(false)
   const [apiKey, setApiKey] = useState("")
   const [staff, setStaff] = useState<{ id: string; name: string; role: string }[]>([])
   const [hubs, setHubs] = useState<{ id: string; name: string }[]>([])
   const [activeRegion, setActiveRegion] = useState("GH")
+  const [pickupMode, setPickupMode] = useState<"self-drop" | "bal-pickup">("self-drop")
+  const [withdrawSchedule, setWithdrawSchedule] = useState<"daily" | "weekly" | "monthly">("weekly")
+  const [editableProductId, setEditableProductId] = useState<string | null>(null)
 
   useEffect(() => {
     const storedTheme = localStorage.getItem("vendor_theme")
@@ -92,6 +123,26 @@ export default function VendorPortalPage() {
     void syncHubs()
   }, [])
 
+  useEffect(() => {
+    if (!newProductImageFile) {
+      setNewProductImagePreview(null)
+      return
+    }
+    const url = URL.createObjectURL(newProductImageFile)
+    setNewProductImagePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [newProductImageFile])
+
+  useEffect(() => {
+    if (!editProductImageFile) {
+      setEditProductImagePreview(null)
+      return
+    }
+    const url = URL.createObjectURL(editProductImageFile)
+    setEditProductImagePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [editProductImageFile])
+
   async function syncInventory() {
     const data = await getJSON<{ items: Product[] }>("/api/inventory", { items: [] })
     setProducts(Array.isArray(data.items) ? data.items : [])
@@ -105,11 +156,21 @@ export default function VendorPortalPage() {
   async function syncProfile() {
     const data = await getJSON<{ profile?: VendorProfile | null }>("/api/vendor/profile", {})
     if (data.profile) {
-      setProfile({ name: data.profile.name, initials: data.profile.initials, tier: data.profile.tier ?? 1 })
+      const me = await getJSON<{ user?: { id?: string | null } }>("/api/me", {})
+      setProfile({
+        name: data.profile.name,
+        initials: data.profile.initials,
+        tier: data.profile.tier ?? 1,
+        userId: me.user?.id || "",
+        bio: data.profile.bio ?? "",
+        contactPhone: data.profile.contactPhone ?? "",
+        contactEmail: data.profile.contactEmail ?? "",
+        businessAddress: data.profile.businessAddress ?? ""
+      })
       setTier(data.profile.tier ?? 1)
       return
     }
-    const me = await getJSON<{ user?: { name?: string | null; email?: string | null } }>("/api/me", {})
+    const me = await getJSON<{ user?: { id?: string | null; name?: string | null; email?: string | null } }>("/api/me", {})
     const name = me.user?.name || me.user?.email || "Vendor"
     const initials = name
       .split(" ")
@@ -117,14 +178,33 @@ export default function VendorPortalPage() {
       .join("")
       .slice(0, 2)
       .toUpperCase()
-    setProfile({ name, initials, tier: 1 })
+    setProfile({
+      name,
+      initials,
+      tier: 1,
+      userId: me.user?.id || "",
+      bio: "",
+      contactPhone: "",
+      contactEmail: "",
+      businessAddress: ""
+    })
     await requestJSON("/api/vendor/profile", { name, initials, tier: 1 }, "PUT", {})
   }
 
   async function syncSettings() {
-    const data = await getJSON<{ settings?: { region?: string; apiKey?: string; theme?: string } }>("/api/settings", {})
+    const data = await getJSON<{
+      settings?: {
+        region?: string
+        apiKey?: string
+        theme?: string
+        vendorPickupMode?: "self-drop" | "bal-pickup"
+        vendorWithdrawSchedule?: "daily" | "weekly" | "monthly"
+      }
+    }>("/api/settings", {})
     if (data.settings?.region) setActiveRegion(data.settings.region)
     if (data.settings?.apiKey) setApiKey(data.settings.apiKey)
+    if (data.settings?.vendorPickupMode) setPickupMode(data.settings.vendorPickupMode)
+    if (data.settings?.vendorWithdrawSchedule) setWithdrawSchedule(data.settings.vendorWithdrawSchedule)
     if (data.settings?.theme) {
       const dark = data.settings.theme === "dark"
       setIsDark(dark)
@@ -157,6 +237,18 @@ export default function VendorPortalPage() {
     () => products.reduce((sum, p) => sum + p.price * (p.baseStock || 1), 0),
     [products]
   )
+  const weeklySalesBars = useMemo(() => {
+    const bars = new Array(7).fill(0)
+    for (const tx of wallet) {
+      const date = new Date(tx.ts)
+      const day = date.getDay()
+      bars[day] += tx.amount
+    }
+    return bars
+  }, [wallet])
+  const storefrontLink = useMemo(() => {
+    return `/vendors/${encodeURIComponent(profile.userId || "")}`
+  }, [profile.userId])
 
   function toggleTheme() {
     const next = !isDark
@@ -167,30 +259,168 @@ export default function VendorPortalPage() {
   }
 
   function addProduct() {
+    resetProductForm()
     setShowAddModal(true)
   }
 
-  function saveNewProduct() {
+  async function saveNewProduct() {
     const name = newProductName.trim()
     if (!name) return
     const price = parseFloat(newProductPrice || "0")
     const stock = parseInt(newProductStock || "1", 10)
-    const newProduct: Product = {
-      id: `P-${Date.now()}`,
-      name,
-      price: isNaN(price) ? 0 : price,
-      baseStock: isNaN(stock) ? 1 : stock
+    if (newProductImageFile && newProductImageFile.size > 5 * 1024 * 1024) {
+      await dialog.alert("Image is too large. Please use a file under 5MB.")
+      return
     }
-    setProducts((prev) => [newProduct, ...prev])
-    void postJSON("/api/inventory", { item: newProduct }, { items: [] })
-    setNewProductName("")
-    setNewProductPrice("")
-    setNewProductStock("")
-    setShowAddModal(false)
+
+    setProductSaving(true)
+    try {
+      let imageUrl: string | null = null
+      if (newProductImageFile) {
+        imageUrl = await uploadImage(newProductImageFile)
+      }
+      const res = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item: {
+            name,
+            brand: newProductBrand.trim() || null,
+            price: isNaN(price) ? 0 : price,
+            baseStock: isNaN(stock) ? 1 : stock,
+            desc: newProductDesc.trim() || null,
+            imageUrl
+          }
+        })
+      })
+      const data = (await res.json().catch(() => ({}))) as { items?: Product[]; error?: string }
+      if (!res.ok) {
+        throw new Error(data.error || "Could not save this product yet.")
+      }
+      if (Array.isArray(data.items)) {
+        setProducts(data.items)
+      } else {
+        await syncInventory()
+      }
+      resetProductForm()
+      setShowAddModal(false)
+    } catch (error) {
+      await dialog.alert(error instanceof Error ? error.message : "Could not save this product yet.")
+    } finally {
+      setProductSaving(false)
+    }
   }
 
   function requestPickup() {
     setShowPickupModal(true)
+  }
+
+  function persistPickupMode(next: "self-drop" | "bal-pickup") {
+    setPickupMode(next)
+    void requestJSON("/api/settings", { vendorPickupMode: next }, "PUT", {})
+  }
+
+  function persistWithdrawSchedule(next: "daily" | "weekly" | "monthly") {
+    setWithdrawSchedule(next)
+    void requestJSON("/api/settings", { vendorWithdrawSchedule: next }, "PUT", {})
+  }
+
+  function deriveInitials(name: string) {
+    return name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase()
+  }
+
+  async function saveVendorProfile(nextTier = tier) {
+    const name = profile.name.trim()
+    if (!name) {
+      setProfileMessage("Vendor name is required.")
+      return
+    }
+
+    const initials = deriveInitials(name) || profile.initials || "VN"
+    const payload = {
+      name,
+      initials,
+      tier: nextTier,
+      bio: profile.bio?.trim() || null,
+      contactPhone: profile.contactPhone?.trim() || null,
+      contactEmail: profile.contactEmail?.trim() || null,
+      businessAddress: profile.businessAddress?.trim() || null
+    }
+
+    setProfileSaving(true)
+    setProfileMessage("")
+    try {
+      const res = await fetch("/api/vendor/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(typeof data?.error === "string" ? data.error : "Could not save vendor profile.")
+      }
+
+      setTier(nextTier)
+      setProfile((prev) => ({
+        ...prev,
+        name,
+        initials,
+        tier: nextTier,
+        bio: data?.profile?.bio ?? payload.bio ?? "",
+        contactPhone: data?.profile?.contactPhone ?? payload.contactPhone ?? "",
+        contactEmail: data?.profile?.contactEmail ?? payload.contactEmail ?? "",
+        businessAddress: data?.profile?.businessAddress ?? payload.businessAddress ?? ""
+      }))
+      setProfileMessage("Vendor profile saved.")
+    } catch (error) {
+      setProfileMessage(error instanceof Error ? error.message : "Could not save vendor profile.")
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
+  function resetProductForm() {
+    setNewProductName("")
+    setNewProductBrand("")
+    setNewProductPrice("")
+    setNewProductStock("")
+    setNewProductDesc("")
+    setNewProductImageFile(null)
+    setNewProductImagePreview(null)
+  }
+
+  function resetEditableForm() {
+    setEditableProductId(null)
+    setNewProductName("")
+    setNewProductBrand("")
+    setNewProductPrice("")
+    setNewProductStock("")
+    setNewProductDesc("")
+    setEditProductImageFile(null)
+    setEditProductImagePreview(null)
+    setEditProductImageUrl("")
+  }
+
+  async function uploadImage(file: File) {
+    const formData = new FormData()
+    formData.append("file", file)
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(typeof data?.error === "string" ? data.error : "Upload failed")
+    }
+    return String(data?.url || "")
   }
 
   async function resetVendorSystem() {
@@ -200,7 +430,16 @@ export default function VendorPortalPage() {
   }
 
   async function importLegacyVendorData() {
-    const legacyProfile = safeParse<VendorProfile>("balnova_vendor_profile", { name: "", initials: "", tier: 1 })
+    const legacyProfile = safeParse<VendorProfile>("balnova_vendor_profile", {
+      name: "",
+      initials: "",
+      tier: 1,
+      userId: "",
+      bio: "",
+      contactPhone: "",
+      contactEmail: "",
+      businessAddress: ""
+    })
     const legacyTier = parseInt(localStorage.getItem("vendor_tier") || "1", 10)
     const legacyApiKey = localStorage.getItem("gemini_api_key") || ""
     const legacyRegion = localStorage.getItem("balnova_active_region") || ""
@@ -211,7 +450,15 @@ export default function VendorPortalPage() {
     if (legacyProfile.name) {
       await requestJSON(
         "/api/vendor/profile",
-        { name: legacyProfile.name, initials: legacyProfile.initials || "", tier: legacyTier || 1 },
+        {
+          name: legacyProfile.name,
+          initials: legacyProfile.initials || "",
+          tier: legacyTier || 1,
+          bio: legacyProfile.bio || "",
+          contactPhone: legacyProfile.contactPhone || "",
+          contactEmail: legacyProfile.contactEmail || "",
+          businessAddress: legacyProfile.businessAddress || ""
+        },
         "PUT",
         {}
       )
@@ -293,13 +540,15 @@ export default function VendorPortalPage() {
         )}
       >
         <div className="p-6 flex flex-col items-center border-b border-white/10">
-          <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-3 border-2 border-myamber">
-            <ShieldCheck className="text-myamber w-8 h-8" />
-          </div>
-          <h1 className="font-bold text-xl tracking-wide">BAL NOVA</h1>
-          <p className="text-xs text-myamber/80 mb-3">
-            Vendor Portal <span className="bg-white/20 px-1 rounded text-[10px] ml-1">TIER {tier}</span>
-          </p>
+          <Link href="/" className="flex flex-col items-center">
+            <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-3 border-2 border-myamber">
+              <ShieldCheck className="text-myamber w-8 h-8" />
+            </div>
+            <h1 className="font-bold text-xl tracking-wide">BAL NOVA</h1>
+            <p className="text-xs text-myamber/80 mb-3">
+              Vendor Portal <span className="bg-white/20 px-1 rounded text-[10px] ml-1">TIER {tier}</span>
+            </p>
+          </Link>
           <div className="w-full bg-black/40 rounded-full h-1.5 overflow-hidden mb-1">
             <div className="bg-green-500 h-full" style={{ width: "100%" }} />
           </div>
@@ -376,14 +625,14 @@ export default function VendorPortalPage() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6 scroll-smooth">
           {activeTab === "dashboard" ? (
             <div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div className="bg-gradient-to-r from-myblue to-myamber rounded-xl p-5 shadow-lg text-white">
                   <div className="text-xs font-bold opacity-80 uppercase tracking-wider mb-1">Escrow Balance</div>
                   <div className="text-2xl font-black">{formatCurrency(escrowBalance)}</div>
-                  <div className="text-[10px] mt-1 opacity-70">Releases 5 days after delivery</div>
+                  <div className="text-[10px] mt-1 opacity-70">Escrow releases 14 days after delivery</div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border-l-4 border-myblue">
                   <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Inventory Value</div>
@@ -414,12 +663,12 @@ export default function VendorPortalPage() {
                 >
                   <Bike className="w-4 h-4" /> Request Pickup
                 </button>
-                <button
-                  onClick={() => setShowCharterModal(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2"
+                <Link
+                  href={storefrontLink}
+                  className="bg-white text-myblue font-semibold py-2.5 px-5 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-2"
                 >
-                  Book Van
-                </button>
+                  Open Store Link
+                </Link>
               </div>
 
               <div className="bg-gradient-to-r from-myblue to-blue-900 rounded-xl p-6 text-white shadow-lg mb-8 relative overflow-hidden">
@@ -443,6 +692,68 @@ export default function VendorPortalPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-gray-400 uppercase">Weekly Sales Pulse</div>
+                      <div className="text-sm text-gray-500">Simple view of vendor activity.</div>
+                    </div>
+                    <div className="text-xs text-myamber font-bold">Graph enabled</div>
+                  </div>
+                  <div className="mt-5 grid grid-cols-7 items-end gap-2 h-28">
+                    {weeklySalesBars.map((value, index) => (
+                      <div key={index} className="rounded-t bg-myamber/80" style={{ height: `${Math.max(10, value / 4)}px` }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
+                  <div className="text-xs font-semibold text-gray-400 uppercase">Fulfilment + Withdrawals</div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <div className="text-[11px] font-bold text-gray-500 mb-2">Pickup mode</div>
+                      <div className="flex gap-2">
+                        {[
+                          { key: "self-drop", label: "Self drop" },
+                          { key: "bal-pickup", label: "We pick up" }
+                        ].map((option) => (
+                          <button
+                            key={option.key}
+                            onClick={() => persistPickupMode(option.key as "self-drop" | "bal-pickup")}
+                            className={cn(
+                              "rounded-full px-3 py-2 text-xs font-bold border",
+                              pickupMode === option.key ? "border-myamber bg-myamber/10 text-myamber" : "border-gray-200 dark:border-gray-700"
+                            )}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-gray-500 mb-2">Withdrawal schedule</div>
+                      <div className="flex gap-2">
+                        {(["daily", "weekly", "monthly"] as const).map((option) => (
+                          <button
+                            key={option}
+                            onClick={() => persistWithdrawSchedule(option)}
+                            className={cn(
+                              "rounded-full px-3 py-2 text-xs font-bold border capitalize",
+                              withdrawSchedule === option ? "border-myamber bg-myamber/10 text-myamber" : "border-gray-200 dark:border-gray-700"
+                            )}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-500">
+                    Withdrawals are approved only after 14-day escrow maturity, completed delivery, and a clean QC status.
+                  </div>
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -457,9 +768,167 @@ export default function VendorPortalPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {products.map((p) => (
                   <div key={p.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-                    <div className="font-bold">{p.name}</div>
-                    <div className="text-xs text-gray-400">Stock: {p.baseStock || 0}</div>
-                    <div className="text-sm text-myamber font-bold">{formatCurrency(p.price)}</div>
+                    {editableProductId === p.id ? (
+                      <div className="space-y-2">
+                        <input
+                          value={newProductName}
+                          onChange={(e) => setNewProductName(e.target.value)}
+                          className="w-full rounded border p-2 text-sm dark:bg-gray-900 dark:border-gray-700"
+                          placeholder="Product name"
+                        />
+                        <input
+                          value={newProductPrice}
+                          onChange={(e) => setNewProductPrice(e.target.value)}
+                          className="w-full rounded border p-2 text-sm dark:bg-gray-900 dark:border-gray-700"
+                          placeholder="Price"
+                        />
+                        <input
+                          value={newProductBrand}
+                          onChange={(e) => setNewProductBrand(e.target.value)}
+                          className="w-full rounded border p-2 text-sm dark:bg-gray-900 dark:border-gray-700"
+                          placeholder="Brand"
+                        />
+                        <input
+                          value={newProductStock}
+                          onChange={(e) => setNewProductStock(e.target.value)}
+                          className="w-full rounded border p-2 text-sm dark:bg-gray-900 dark:border-gray-700"
+                          placeholder="Stock"
+                        />
+                        <textarea
+                          value={newProductDesc}
+                          onChange={(e) => setNewProductDesc(e.target.value)}
+                          className="w-full rounded border p-2 text-sm dark:bg-gray-900 dark:border-gray-700"
+                          placeholder="Product description"
+                          rows={4}
+                        />
+                        <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-3">
+                          <label className="text-[11px] font-bold text-gray-500">Product picture</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="mt-2 block w-full text-xs"
+                            onChange={(e) => setEditProductImageFile(e.target.files?.[0] || null)}
+                          />
+                          <div className="mt-2 text-[11px] text-gray-500">
+                            {editProductImageFile ? editProductImageFile.name : editProductImageUrl ? "Current image saved" : "No image selected"}
+                          </div>
+                          {editProductImagePreview || editProductImageUrl ? (
+                            <img
+                              src={editProductImagePreview || editProductImageUrl}
+                              alt={p.name}
+                              className="mt-3 h-32 w-full rounded-lg object-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : null}
+                          {editProductImageUrl ? (
+                            <button
+                              onClick={() => {
+                                setEditProductImageUrl("")
+                                setEditProductImageFile(null)
+                              }}
+                              className="mt-2 text-[11px] font-bold text-red-500"
+                            >
+                              Remove current image
+                            </button>
+                          ) : null}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              if (editProductImageFile && editProductImageFile.size > 5 * 1024 * 1024) {
+                                await dialog.alert("Image is too large. Please use a file under 5MB.")
+                                return
+                              }
+
+                              setProductSaving(true)
+                              try {
+                                let imageUrl = editProductImageUrl || null
+                                if (editProductImageFile) {
+                                  imageUrl = await uploadImage(editProductImageFile)
+                                }
+                                const updated = {
+                                  id: p.id,
+                                  name: newProductName || p.name,
+                                  brand: newProductBrand.trim() || null,
+                                  price: Number(newProductPrice || p.price),
+                                  baseStock: Number(newProductStock || p.baseStock || 0),
+                                  desc: newProductDesc.trim() || null,
+                                  imageUrl
+                                }
+                                const res = await fetch("/api/inventory", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify(updated)
+                                })
+                                const data = (await res.json().catch(() => ({}))) as { item?: Product; error?: string }
+                                if (!res.ok) {
+                                  throw new Error(data.error || "Could not update this product yet.")
+                                }
+                                if (data.item) {
+                                  setProducts((prev) => prev.map((item) => (item.id === p.id ? data.item! : item)))
+                                } else {
+                                  await syncInventory()
+                                }
+                                resetEditableForm()
+                              } catch (error) {
+                                await dialog.alert(error instanceof Error ? error.message : "Could not update this product yet.")
+                              } finally {
+                                setProductSaving(false)
+                              }
+                            }}
+                            className="text-xs font-bold bg-myamber text-myblue px-3 py-2 rounded"
+                          >
+                            {productSaving ? "Saving..." : "Save"}
+                          </button>
+                          <button onClick={resetEditableForm} className="text-xs font-bold border px-3 py-2 rounded">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {p.imageUrl ? (
+                          <img
+                            src={p.imageUrl}
+                            alt={p.name}
+                            className="mb-3 h-36 w-full rounded-lg object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <div className="mb-3 flex h-36 w-full items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-400 dark:border-gray-700">
+                            No product image yet
+                          </div>
+                        )}
+                        <div className="font-bold">{p.name}</div>
+                        {p.brand ? <div className="text-xs text-gray-500">{p.brand}</div> : null}
+                        <div className="text-xs text-gray-400">Stock: {p.baseStock || 0}</div>
+                        <div className="text-sm text-myamber font-bold">{formatCurrency(p.price)}</div>
+                        {p.desc ? <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-300">{p.desc}</p> : null}
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            onClick={() => {
+                              setEditableProductId(p.id)
+                              setNewProductName(p.name)
+                              setNewProductBrand(p.brand || "")
+                              setNewProductPrice(String(p.price))
+                              setNewProductStock(String(p.baseStock || 0))
+                              setNewProductDesc(p.desc || "")
+                              setEditProductImageUrl(p.imageUrl || "")
+                              setEditProductImageFile(null)
+                              setEditProductImagePreview(null)
+                            }}
+                            className="text-xs font-bold border border-blue-500/40 text-blue-600 px-3 py-2 rounded"
+                          >
+                            Edit
+                          </button>
+                          <button className="text-xs font-bold border border-emerald-500/40 text-emerald-600 px-3 py-2 rounded">
+                            Live to sell
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -497,6 +966,12 @@ export default function VendorPortalPage() {
           {activeTab === "wallet" ? (
             <div className="space-y-4">
               <h3 className="text-lg font-bold">Wallet & Escrow</h3>
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-sm">
+                <div className="font-bold">Structured withdrawals</div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Current plan: {withdrawSchedule}. Escrow unlocks after 14 days, then approval checks completed delivery, pickup confirmation, and no active dispute.
+                </p>
+              </div>
               {wallet.length === 0 ? (
                 <div className="text-sm text-gray-500">No transactions yet.</div>
               ) : (
@@ -536,6 +1011,39 @@ export default function VendorPortalPage() {
                   onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
                   className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-700"
                 />
+                <label className="text-xs font-bold text-gray-500">Public Contact Email</label>
+                <input
+                  value={profile.contactEmail || ""}
+                  onChange={(e) => setProfile((p) => ({ ...p, contactEmail: e.target.value }))}
+                  className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-700"
+                />
+                <label className="text-xs font-bold text-gray-500">Public Contact Phone</label>
+                <input
+                  value={profile.contactPhone || ""}
+                  onChange={(e) => setProfile((p) => ({ ...p, contactPhone: e.target.value }))}
+                  className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-700"
+                />
+                <label className="text-xs font-bold text-gray-500">Business Address</label>
+                <input
+                  value={profile.businessAddress || ""}
+                  onChange={(e) => setProfile((p) => ({ ...p, businessAddress: e.target.value }))}
+                  className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-700"
+                />
+                <label className="text-xs font-bold text-gray-500">Vendor Bio</label>
+                <textarea
+                  value={profile.bio || ""}
+                  onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
+                  className="w-full p-2 rounded border dark:bg-gray-900 dark:border-gray-700"
+                  rows={4}
+                />
+                <button
+                  onClick={() => void saveVendorProfile()}
+                  disabled={profileSaving}
+                  className="text-xs font-bold bg-myblue text-white px-3 py-2 rounded disabled:opacity-60"
+                >
+                  {profileSaving ? "Saving..." : "Save Vendor Profile"}
+                </button>
+                {profileMessage ? <div className="text-xs text-gray-500">{profileMessage}</div> : null}
                 <label className="text-xs font-bold text-gray-500">Gemini API Key</label>
                 <input
                   value={apiKey}
@@ -548,6 +1056,10 @@ export default function VendorPortalPage() {
                 >
                   Save API Key
                 </button>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-xs">
+                  <div className="font-bold text-gray-500 mb-1">Storefront link</div>
+                  <div className="break-all text-myamber">{storefrontLink}</div>
+                </div>
                 <button
                   onClick={importLegacyVendorData}
                   className="text-xs font-bold bg-gray-100 text-gray-700 px-3 py-2 rounded"
@@ -559,10 +1071,7 @@ export default function VendorPortalPage() {
                   {[1, 2, 3].map((t) => (
                     <button
                       key={t}
-                      onClick={() => {
-                        setTier(t)
-                        void requestJSON("/api/vendor/profile", { name: profile.name, initials: profile.initials, tier: t }, "PUT", {})
-                      }}
+                      onClick={() => void saveVendorProfile(t)}
                       className={cn(
                         "px-3 py-2 rounded text-xs font-bold border",
                         tier === t ? "bg-myamber text-myblue border-myamber" : "border-gray-200 dark:border-gray-700"
@@ -673,6 +1182,12 @@ export default function VendorPortalPage() {
               onChange={(e) => setNewProductName(e.target.value)}
               className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Brand</label>
+            <input
+              value={newProductBrand}
+              onChange={(e) => setNewProductBrand(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Price (GHS)</label>
             <input
               value={newProductPrice}
@@ -685,11 +1200,38 @@ export default function VendorPortalPage() {
               onChange={(e) => setNewProductStock(e.target.value)}
               className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Description</label>
+            <textarea
+              value={newProductDesc}
+              onChange={(e) => setNewProductDesc(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              rows={4}
+            />
+            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1 mt-3">Product Picture</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setNewProductImageFile(e.target.files?.[0] || null)}
+              className="w-full p-3 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+            />
+            <div className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+              {newProductImageFile ? newProductImageFile.name : "No image selected"}
+            </div>
+            {newProductImagePreview ? (
+              <img
+                src={newProductImagePreview}
+                alt="New product preview"
+                className="mt-3 h-40 w-full rounded-xl object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : null}
             <button
               onClick={saveNewProduct}
+              disabled={productSaving}
               className="w-full mt-4 bg-myamber text-myblue py-3 rounded-xl font-bold"
             >
-              Save Product
+              {productSaving ? "Saving..." : "Save Product"}
             </button>
           </div>
         </div>

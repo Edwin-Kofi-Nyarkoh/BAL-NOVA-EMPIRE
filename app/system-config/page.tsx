@@ -77,6 +77,8 @@ export default function SystemConfigPage() {
   const [dispatchRadiusKm, setDispatchRadiusKm] = useState("")
   const [savingDispatchRadius, setSavingDispatchRadius] = useState(false)
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" })
+  const [coveragePolygon, setCoveragePolygon] = useState("5.6037,-0.1870 | 5.6210,-0.1520 | 5.6040,-0.1180 | 5.5750,-0.1320 | 5.5780,-0.1750")
+  const [mapProvider, setMapProvider] = useState("mapbox")
 
   const canSubmit = useMemo(() => {
     return form.name.trim() && form.email.trim() && form.password.trim().length >= 8
@@ -205,6 +207,10 @@ export default function SystemConfigPage() {
     if (typeof dispatch === "number") {
       setDispatchRadiusKm(String(dispatch))
     }
+    const polygon = systemSettingsQuery.data?.settings?.dispatchPolygon
+    const provider = systemSettingsQuery.data?.settings?.mapProvider
+    if (typeof polygon === "string" && polygon) setCoveragePolygon(polygon)
+    if (typeof provider === "string" && provider) setMapProvider(provider)
   }, [systemSettingsQuery.data])
 
   async function loadBaySettings() {
@@ -277,6 +283,24 @@ export default function SystemConfigPage() {
     }
   }
 
+  function saveCoveragePolygon() {
+    setMessage("")
+    void fetch("/api/system-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dispatchPolygon: coveragePolygon, mapProvider })
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data?.error || "Unable to save polygon")
+        setMessage("Coverage polygon saved for admin operations.")
+        await systemSettingsQuery.refetch()
+      })
+      .catch((err) => {
+        setMessage(err instanceof Error ? err.message : "Unable to save polygon")
+      })
+  }
+
   async function clearRiderTasks(riderId: string) {
     const ok = await dialog.confirm("Clear all active tasks for this rider?")
     if (!ok) return
@@ -332,6 +356,22 @@ export default function SystemConfigPage() {
       setResettingRiderCash(false)
     }
   }
+
+  const ecosystemPoints = useMemo(() => {
+    const riderPoints = riderAdminRows.map((rider) => ({
+      id: rider.id,
+      label: rider.name || rider.email || rider.id,
+      type: "Rider",
+      meta: rider.riderState?.status || "Idle"
+    }))
+    const userPoints = users.slice(0, 8).map((user) => ({
+      id: user.id,
+      label: user.name || user.email,
+      type: user.role,
+      meta: user.approvalStatus || "approved"
+    }))
+    return [...riderPoints, ...userPoints]
+  }, [riderAdminRows, users])
 
   return (
     <AdminShell title="System Config" subtitle="Security, roles, and platform settings">
@@ -620,8 +660,8 @@ export default function SystemConfigPage() {
         <Card className="bg-white dark:bg-mydark lg:col-span-3">
           <CardContent className="p-6 space-y-4">
             <div>
-              <h3 className="text-lg font-bold text-mynavy dark:text-white">Dispatch Radius</h3>
-              <p className="text-xs text-gray-500">Limit auto-assign to riders within this radius (km).</p>
+              <h3 className="text-lg font-bold text-mynavy dark:text-white">Dispatch Coverage</h3>
+              <p className="text-xs text-gray-500">Legacy radius stays available, but ops now plan rider zones with a pentagon-style polygon and Mapbox-first mapping.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <input
@@ -640,6 +680,87 @@ export default function SystemConfigPage() {
               <span className="text-[11px] text-gray-500">
                 Defaults to env `DISPATCH_RADIUS_KM` if blank.
               </span>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-gray-500">Map provider</label>
+                <select
+                  value={mapProvider}
+                  onChange={(e) => setMapProvider(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/5 px-3 py-2 text-sm"
+                >
+                  <option value="mapbox">Mapbox</option>
+                  <option value="fallback">Fallback preview</option>
+                </select>
+                <label className="text-xs font-bold text-gray-500">Coverage polygon</label>
+                <textarea
+                  value={coveragePolygon}
+                  onChange={(e) => setCoveragePolygon(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-white/5 px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={saveCoveragePolygon}
+                  className="rounded-lg border border-myamber/40 text-myamber text-sm font-bold px-4 py-2 hover:bg-myamber/10"
+                >
+                  Save Polygon Plan
+                </button>
+              </div>
+              <div className="rounded-xl border border-dashed border-gray-200 dark:border-white/10 p-4">
+                <div className="text-xs font-bold text-gray-500 uppercase mb-3">Coverage Preview</div>
+                <div className="grid h-56 place-items-center rounded-xl bg-gradient-to-br from-slate-100 via-white to-amber-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+                  <svg viewBox="0 0 320 220" className="h-44 w-full max-w-xs">
+                    <polygon points="90,30 220,45 255,115 170,190 55,145" fill="rgba(245,158,11,0.22)" stroke="#f59e0b" strokeWidth="4" />
+                    <circle cx="120" cy="80" r="7" fill="#0f172a" />
+                    <circle cx="190" cy="92" r="7" fill="#0f172a" />
+                    <circle cx="155" cy="145" r="7" fill="#0f172a" />
+                  </svg>
+                </div>
+                <p className="mt-3 text-xs text-gray-500">
+                  This is the planning preview for pentagon-style rider coverage. Use Mapbox in production to draw and manage the real polygon.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white dark:bg-mydark lg:col-span-3">
+          <CardContent className="p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-mynavy dark:text-white">Ecosystem Map Board</h3>
+              <p className="text-xs text-gray-500">One operations view for pending queue, pickups, returns, riders, and people in the ecosystem.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4">
+                <div className="text-xs text-gray-400 uppercase">Pending Queue</div>
+                <div className="text-2xl font-bold text-mynavy dark:text-white">{orders.filter((o) => o.status === "Pending").length}</div>
+              </div>
+              <div className="rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4">
+                <div className="text-xs text-gray-400 uppercase">Pickups</div>
+                <div className="text-2xl font-bold text-mynavy dark:text-white">{orders.filter((o) => /pickup/i.test(o.item) || /pickup/i.test(o.status)).length}</div>
+              </div>
+              <div className="rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4">
+                <div className="text-xs text-gray-400 uppercase">Returns</div>
+                <div className="text-2xl font-bold text-mynavy dark:text-white">{orders.filter((o) => /return/i.test(o.item) || /return/i.test(o.status)).length}</div>
+              </div>
+              <div className="rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4">
+                <div className="text-xs text-gray-400 uppercase">Tracked People</div>
+                <div className="text-2xl font-bold text-mynavy dark:text-white">{ecosystemPoints.length}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {ecosystemPoints.map((point) => (
+                <div
+                  key={point.id}
+                  className="flex items-center justify-between rounded-xl border border-gray-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3"
+                >
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white">{point.label}</div>
+                    <div className="text-xs text-gray-500">{point.type}</div>
+                  </div>
+                  <div className="text-xs font-bold text-myamber">{point.meta}</div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

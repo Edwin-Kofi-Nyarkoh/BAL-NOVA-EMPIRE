@@ -17,7 +17,11 @@ const settingsSchema = z.object({
   bayBCapacity: z.coerce.number().min(0).max(100000).optional(),
   bayAHotPct: z.coerce.number().min(0).max(100).optional(),
   bayBHotPct: z.coerce.number().min(0).max(100).optional(),
-  bayAutoHot: z.boolean().optional()
+  bayAutoHot: z.boolean().optional(),
+  vendorPickupMode: z.enum(["self-drop", "bal-pickup"]).optional(),
+  vendorWithdrawSchedule: z.enum(["daily", "weekly", "monthly"]).optional(),
+  resellerWithdrawMode: z.enum(["manual", "automatic"]).optional(),
+  resellerWithdrawSchedule: z.enum(["daily", "weekly", "monthly"]).optional()
 })
 
 export async function GET() {
@@ -62,7 +66,11 @@ export async function PUT(req: Request) {
     bayBCapacity: parsed.data.bayBCapacity,
     bayAHotPct: parsed.data.bayAHotPct,
     bayBHotPct: parsed.data.bayBHotPct,
-    bayAutoHot: parsed.data.bayAutoHot
+    bayAutoHot: parsed.data.bayAutoHot,
+    vendorPickupMode: parsed.data.vendorPickupMode,
+    vendorWithdrawSchedule: parsed.data.vendorWithdrawSchedule,
+    resellerWithdrawMode: parsed.data.resellerWithdrawMode,
+    resellerWithdrawSchedule: parsed.data.resellerWithdrawSchedule
   }
 
   const settings = await prisma.userSettings.upsert({

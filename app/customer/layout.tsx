@@ -6,6 +6,7 @@ import { LogoutButton } from "@/components/logout-button"
 import { usePathname } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import { ShoppingCart } from "lucide-react"
+import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
 import { getJSON, requestJSON } from "@/lib/sync"
 import { useCartCount } from "@/components/cart/use-cart-count"
@@ -81,13 +82,13 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
     <div className="flex flex-col min-h-screen bg-white dark:bg-mydark">
       {!isLegacyCustomer ? (
         <header className="sticky top-0 z-40 bg-white/95 dark:bg-mydark/95 backdrop-blur border-b border-gray-100 dark:border-white/10">
-          <div className="max-w-md mx-auto w-full px-4 py-3 flex items-center justify-between">
-            <div className="text-xs font-bold text-gray-500 dark:text-gray-300">Customer</div>
+          <div className="max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            <Link href="/" className="text-xs font-bold text-gray-500 dark:text-gray-300">Bal Nova Customer</Link>
             <LogoutButton className="text-[11px] font-bold px-3 py-1.5 rounded-full border border-myamber/30 text-myamber hover:bg-myamber/10 transition-colors" />
           </div>
         </header>
       ) : null}
-      <main className={isLegacyCustomer ? "flex-1 p-0" : "flex-1 pb-24 p-4 max-w-md mx-auto w-full"}>
+      <main className={isLegacyCustomer ? "flex-1 p-0" : "flex-1 pb-24 p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full"}>
         {children}
       </main>
 

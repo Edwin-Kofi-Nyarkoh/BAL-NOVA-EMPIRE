@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ModeToggle } from "@/components/ui/mode-toggle"
 
 export default function SignupPage() {
@@ -15,6 +15,7 @@ export default function SignupPage() {
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   useEffect(() => {
     const requestedRole = searchParams.get("role")
@@ -43,6 +44,7 @@ export default function SignupPage() {
       setName("")
       setEmail("")
       setPassword("")
+      router.push(`/login?signup=1&email=${encodeURIComponent(email)}`)
     } else {
       const data = await res.json().catch(() => ({}))
       setError(data.error || "Signup failed")

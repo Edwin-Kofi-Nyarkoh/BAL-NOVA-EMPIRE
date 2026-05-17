@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
+import Link from "next/link"
 import {
   ShoppingCart,
   MapPin,
@@ -14,12 +15,15 @@ import {
   Sun,
   WandSparkles,
   Bolt,
-  PhoneCall
+  PhoneCall,
+  Package,
+  RefreshCw
 } from "lucide-react"
 import { cn, formatCurrency } from "@/lib/utils"
 import { getJSON, postJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
 import { useDialog } from "@/components/ui/dialog-service"
+import { formatNovaCredits, getInternalReviewSummary, getProductSignal, sortProductsForDiscovery } from "@/lib/commerce"
 
 type Product = {
   id: string
@@ -27,7 +31,9 @@ type Product = {
   price: number
   brand?: string
   image?: string
+  imageUrl?: string | null
   desc?: string
+  baseStock?: number
 }
 
 type CartItem = Product & { qty: number; productId?: string | null; cartItemId?: string }
@@ -179,7 +185,7 @@ export default function CustomerHome() {
 
   async function syncInventory() {
     const data = await getJSON<{ items: Product[] }>("/api/inventory", { items: [] })
-    setProducts(Array.isArray(data.items) ? data.items : [])
+    setProducts(sortProductsForDiscovery(Array.isArray(data.items) ? data.items : []))
   }
 
   async function syncOrders() {
@@ -244,6 +250,10 @@ export default function CustomerHome() {
         qty: i.qty
       }))
     )
+  }
+
+  function getProductImage(product: Product) {
+    return product.imageUrl || product.image || ""
   }
 
   function notifyCartUpdate() {
@@ -321,18 +331,12 @@ export default function CustomerHome() {
     void syncInventory()
   }
 
-  function toggleShopRegion() {
-    const next = region === "GH" ? "NG" : "GH"
-    setRegion(next)
-    void requestJSON("/api/settings", { region: next }, "PUT", {})
-  }
-
   async function generateAiForYou() {
     if (!apiKey) return
     setAiLoading(true)
     try {
       const recentOrders = orders.slice(0, 3).map((o) => o.item).join(", ")
-      const invCtx = products.map((p) => `${p.name} (GHS ${p.price})`).join(", ")
+      const invCtx = products.map((p) => `${p.name} (${formatNovaCredits(p.price)})`).join(", ")
       const prompt = `Suggest 4 items for a Ghana customer. Recent: ${recentOrders || "none"}. Inventory: ${invCtx}.`
       const text = await callGemini(apiKey, prompt)
       const lines = text.split("\n").map((l) => l.replace(/^[-*]\s?/, "").trim()).filter(Boolean)
@@ -379,10 +383,61 @@ export default function CustomerHome() {
     void postJSON("/api/chats", { chat: newMsg }, { chats: [] })
   }
 
-  function triggerPanicProtocol() {
+  async function triggerPanicProtocol() {
     if (!panicType) return
-    setPanicStatus(`Request sent for ${panicType} assistance in ${region === "GH" ? "Accra" : "Lagos"}.`)
-    setPanicResults([])
+    const location = region === "GH" ? "Accra emergency zone" : "Lagos emergency zone"
+    const response = await postJSON<{ orders?: Order[]; error?: string }>(
+      "/api/orders",
+      {
+        order: {
+          item: `Blitz ${panicType} emergency`,
+          price: 50,
+          status: "Blitz",
+          origin: location
+        }
+      },
+      {}
+    )
+    if (response?.error) {
+      setPanicStatus("Could not submit the emergency request. Please try again.")
+      setPanicResults([])
+      return
+    }
+    setPanicStatus(`Blitz request sent for ${panicType} assistance in ${region === "GH" ? "Accra" : "Lagos"}.`)
+    setPanicResults([
+      "Your request is now visible to nearby Service Pros as a premium Blitz lead.",
+      "A Pro must spend 25 Nova Credits to unlock your contact and exact location."
+    ])
+    await syncOrders()
+  }
+
+  async function submitServiceRequest() {
+    const desc = serviceDesc.trim()
+    if (!desc) {
+      await dialog.alert("Describe the job before submitting.")
+      return
+    }
+    const response = await postJSON<{ orders?: Order[]; error?: string }>(
+      "/api/orders",
+      {
+        order: {
+          item: desc,
+          price: 0,
+          status: "Open",
+          origin: region === "GH" ? "Accra" : "Lagos"
+        }
+      },
+      {}
+    )
+    if (response?.error) {
+      await dialog.alert("Could not submit this service request yet.")
+      return
+    }
+    setShowServiceModal(false)
+    setServiceDesc("")
+    setServiceView("browse")
+    await syncOrders()
+    await dialog.alert("Your service request is live. Verified Pros can now unlock the lead.")
   }
 
   async function resetSimulation() {
@@ -434,8 +489,8 @@ export default function CustomerHome() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
       <header className="bg-mynavy text-white shadow-md z-30 sticky top-0 flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setTab("shop")}>
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-myamber rounded-full flex items-center justify-center text-mynavy font-bold text-xs">
               BN
             </div>
@@ -445,7 +500,7 @@ export default function CustomerHome() {
                 Nova Credits: <span className="font-bold text-myamber">{points}</span>
               </div>
             </div>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
             {["shop", "service", "orders", "chats"].map((t) => (
@@ -466,18 +521,11 @@ export default function CustomerHome() {
               </div>
             ) : null}
             <button
-              onClick={toggleShopRegion}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-bold border border-gray-200 dark:border-gray-600 transition-all hover:bg-myamber hover:text-mynavy hover:border-myamber active:scale-95"
-            >
-              <span className="text-base">{region === "GH" ? "GH" : "NG"}</span>{" "}
-              <span className="hidden md:inline">{region === "GH" ? "Ghana" : "Nigeria"}</span>
-            </button>
-            <button
               onClick={forceRefreshShop}
               className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition"
               title="Refresh Products"
             >
-              <Search className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4" />
             </button>
             <button
               onClick={toggleTheme}
@@ -508,7 +556,7 @@ export default function CustomerHome() {
       </header>
 
       <main className="flex-1 overflow-y-auto pb-20 md:pb-0 scroll-smooth relative w-full" id="mainContainer">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {tab === "shop" || tab === "service" ? (
             <div className="space-y-6">
               {tab === "shop" ? (
@@ -587,39 +635,70 @@ export default function CustomerHome() {
                 <div>
                   <div className="mb-6">
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="font-bold text-lg dark:text-white">Trending in Accra</h3>
-                      <span className="text-xs text-myamber cursor-pointer hover:underline">View All</span>
+                      <h3 className="font-bold text-lg dark:text-white">Ranked for {region === "GH" ? "Accra" : "Lagos"}</h3>
+                      <span className="text-xs text-myamber">Smart order</span>
                     </div>
                     <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
                       {products.slice(0, 4).map((p) => (
                         <div
                           key={p.id}
-                          className="min-w-[180px] bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700"
+                          className="min-w-[220px] overflow-hidden bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm"
                         >
-                          <div className="text-xs text-gray-400">{p.brand || "Bal Nova"}</div>
-                          <div className="font-bold">{p.name}</div>
-                          <div className="text-sm text-myamber font-bold mt-2">{formatCurrency(p.price)}</div>
+                          <ProductImage src={getProductImage(p)} alt={p.name} className="h-32" />
+                          <div className="p-4">
+                            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{p.brand || "Bal Nova"}</div>
+                            <div className="mt-1 line-clamp-2 min-h-[40px] font-bold text-sm">{p.name}</div>
+                            <div className="text-[11px] text-gray-400 mt-2">{getProductSignal(p)}</div>
+                            <div className="text-sm text-myamber font-bold mt-2">{formatNovaCredits(p.price)}</div>
+                            <button
+                              onClick={() => addToCart(p)}
+                              className="mt-3 w-full text-xs font-bold bg-mynavy text-white py-2 rounded-lg hover:bg-myblue transition"
+                            >
+                              Add to Cart
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <h3 className="font-bold text-lg dark:text-white mb-3">All Products</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 pb-20">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-lg dark:text-white">All Products</h3>
+                    <span className="text-xs text-gray-400">{products.length} live listings</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pb-20">
                     {products.map((p) => (
                       <div
                         key={p.id}
-                        className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:border-myamber transition"
+                        className="group overflow-hidden bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-myamber hover:shadow-xl hover:-translate-y-0.5 transition"
                       >
-                        <div className="text-xs text-gray-400">{p.brand || "Bal Nova"}</div>
-                        <div className="font-bold text-sm">{p.name}</div>
-                        <div className="text-sm text-myamber font-bold mt-2">{formatCurrency(p.price)}</div>
-                        <button
-                          onClick={() => addToCart(p)}
-                          className="mt-3 w-full text-xs font-bold bg-mynavy text-white py-2 rounded-lg hover:bg-myblue transition"
-                        >
-                          Add to Cart
-                        </button>
+                        <ProductImage src={getProductImage(p)} alt={p.name} className="h-44" />
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{p.brand || "Bal Nova"}</div>
+                              <div className="mt-1 line-clamp-2 min-h-[40px] font-bold text-sm dark:text-white">{p.name}</div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-myamber/15 px-2 py-1 text-[10px] font-black text-myamber">
+                              {p.baseStock || 0} stk
+                            </span>
+                          </div>
+                          {p.desc ? <p className="mt-2 line-clamp-2 min-h-[32px] text-[11px] text-gray-500 dark:text-gray-400">{p.desc}</p> : null}
+                          <div className="text-[11px] text-gray-400 mt-2">{getProductSignal(p)}</div>
+                          <div className="text-base text-myamber font-black mt-2">{formatNovaCredits(p.price)}</div>
+                          <div className="mt-2 rounded-xl border border-gray-100 bg-gray-50 p-2 text-[11px] text-gray-500 dark:border-gray-700 dark:bg-gray-900/50 dark:text-gray-400">
+                            {(() => {
+                              const review = getInternalReviewSummary(p)
+                              return `${review.rating}/5 internal rating · ${review.count} reviews`
+                            })()}
+                          </div>
+                          <button
+                            onClick={() => addToCart(p)}
+                            className="mt-3 w-full text-xs font-bold bg-mynavy text-white py-2.5 rounded-xl hover:bg-myblue transition"
+                          >
+                            Add to Cart
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -743,7 +822,7 @@ export default function CustomerHome() {
           ) : null}
 
           {tab === "orders" ? (
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-6xl mx-auto">
               <h2 className="text-2xl font-bold mb-6 dark:text-white">My Orders</h2>
               <div className="space-y-4">
                 {orders.length === 0 ? (
@@ -787,7 +866,7 @@ export default function CustomerHome() {
           ) : null}
 
           {tab === "locations" ? (
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-6xl mx-auto">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold dark:text-white">Saved Locations</h2>
                 <button onClick={addAddress} className="bg-mynavy text-white px-4 py-2 rounded-lg font-bold text-sm shadow">
@@ -838,7 +917,7 @@ export default function CustomerHome() {
           ) : null}
 
           {tab === "cart" ? (
-            <div className="max-w-2xl mx-auto">
+            <div className="max-w-5xl mx-auto">
               <h2 className="text-2xl font-bold mb-6 dark:text-white">Shopping Cart</h2>
               <div className="mb-4">
                 <button
@@ -921,8 +1000,11 @@ export default function CustomerHome() {
                 <div className="flex justify-between items-center mb-6">
                   <span className="font-bold text-xl dark:text-white">Total</span>
                   <span className="font-bold text-xl text-myamber">
-                    {formatCurrency(cartTotal + deliveryFee)}
+                    {formatNovaCredits(cartTotal + deliveryFee)}
                   </span>
+                </div>
+                <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">
+                  Cart analysis now happens here at checkout so customers can browse products first and decide later.
                 </div>
                 <button
                   onClick={checkout}
@@ -936,7 +1018,7 @@ export default function CustomerHome() {
           ) : null}
 
           {tab === "profile" ? (
-            <div className="max-w-lg mx-auto">
+            <div className="max-w-4xl mx-auto">
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 text-center mb-6">
                 <div className="w-20 h-20 bg-mynavy text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-3">
                   <User className="h-8 w-8" />
@@ -998,7 +1080,7 @@ export default function CustomerHome() {
           ) : null}
 
           {tab === "chats" ? (
-            <div className="max-w-lg mx-auto">
+            <div className="max-w-4xl mx-auto">
               <h2 className="text-2xl font-bold mb-6 dark:text-white">Messages</h2>
               <div className="flex flex-col gap-2">
                 {chats.length === 0 ? (
@@ -1048,8 +1130,9 @@ export default function CustomerHome() {
       <button
         onClick={() => setTab("chats")}
         className="fixed bottom-24 right-6 z-50 w-14 h-14 bg-myamber text-mynavy rounded-full shadow-2xl flex items-center justify-center genie-float group"
+        aria-label="Open Nova Assistant"
       >
-        *
+        <WandSparkles className="h-6 w-6" />
       </button>
 
       {showAddressModal ? (
@@ -1104,10 +1187,7 @@ export default function CustomerHome() {
               placeholder="Describe your issue..."
             />
             <button
-              onClick={() => {
-                setShowServiceModal(false)
-                setServiceDesc("")
-              }}
+              onClick={submitServiceRequest}
               className="w-full mt-4 bg-mynavy text-white py-3 rounded-xl font-bold"
             >
               Submit Request
@@ -1116,6 +1196,35 @@ export default function CustomerHome() {
         </div>
       ) : null}
 
+    </div>
+  )
+}
+
+function ProductImage({ src, alt, className }: { src?: string; alt: string; className?: string }) {
+  const [failed, setFailed] = useState(false)
+  const normalized = src ? src.replace(/\\/g, "/") : ""
+
+  if (!normalized || failed) {
+    return (
+      <div className={cn("relative flex w-full items-center justify-center bg-gradient-to-br from-slate-100 via-white to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-slate-900", className)}>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,191,0,0.18),transparent_35%),radial-gradient(circle_at_70%_70%,rgba(0,45,98,0.16),transparent_40%)]" />
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-mynavy shadow-sm dark:bg-white/10 dark:text-myamber">
+          <Package className="h-7 w-7" />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn("w-full overflow-hidden bg-gray-100 dark:bg-gray-900", className)}>
+      <img
+        src={normalized}
+        alt={alt}
+        className="h-full w-full object-cover transition duration-500 hover:scale-105"
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
     </div>
   )
 }

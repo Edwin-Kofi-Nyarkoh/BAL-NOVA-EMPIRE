@@ -90,7 +90,7 @@ function SessionRedirectGuard({ children }: { children: React.ReactNode }) {
 
 export function AppSessionProvider({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider refetchInterval={60} refetchOnWindowFocus>
+    <SessionProvider basePath="/api/auth" refetchInterval={0} refetchOnWindowFocus={false}>
       <SessionRedirectGuard>{children}</SessionRedirectGuard>
     </SessionProvider>
   )

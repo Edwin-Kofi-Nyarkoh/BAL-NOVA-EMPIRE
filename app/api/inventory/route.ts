@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/server/prisma"
-import { requireAdmin } from "@/lib/server/api-auth"
+import { requireAdmin, requireRole } from "@/lib/server/api-auth"
 import { logAuditEvent } from "@/lib/server/audit"
 import { applyCors, corsHeaders } from "@/lib/server/cors"
 import { getClientIp, rateLimit } from "@/lib/server/rate-limit"
@@ -37,6 +37,62 @@ const inventoryDeleteSchema = z.object({
   id: z.string().min(2).max(80)
 })
 
+async function formatInventoryItems() {
+  const items = await prisma.inventoryItem.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      vendor: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          vendorProfile: {
+            select: {
+              name: true,
+              initials: true,
+              tier: true
+            }
+          },
+          settings: {
+            select: {
+              region: true
+            }
+          },
+          vendorHubs: {
+            orderBy: { createdAt: "asc" },
+            take: 1,
+            select: {
+              name: true
+            }
+          }
+        }
+      }
+    }
+  })
+
+  return items.map((item) => ({
+    ...item,
+    vendor: item.vendor
+      ? {
+          id: item.vendor.id,
+          name: item.vendor.vendorProfile?.name || item.vendor.name || item.vendor.email,
+          initials: item.vendor.vendorProfile?.initials || (item.vendor.name || item.vendor.email || "VN").slice(0, 2).toUpperCase(),
+          tier: item.vendor.vendorProfile?.tier ?? 1,
+          region: item.vendor.settings?.region || null,
+          hubName: item.vendor.vendorHubs[0]?.name || null
+        }
+      : null
+  }))
+}
+
+async function findScopedInventoryItem(id: string, userId: string, isAdmin: boolean) {
+  const item = await prisma.inventoryItem.findUnique({ where: { id } })
+  if (!item) return null
+  if (!isAdmin && item.vendorId && item.vendorId !== userId) return null
+  if (!isAdmin && !item.vendorId) return null
+  return item
+}
+
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders })
 }
@@ -45,13 +101,16 @@ export async function GET(req: Request) {
   const proxied = await proxyToMicroservice(req, "api", "inventory", "GET").catch(() => null)
   if (proxied && proxied.ok) return applyCors(proxied)
 
-  const items = await prisma.inventoryItem.findMany({ orderBy: { createdAt: "desc" } })
+  const items = await formatInventoryItems()
   return Response.json({ items }, { headers: corsHeaders })
 }
 
 export async function POST(req: Request) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(["admin", "vendor"])
   if (!auth.ok) return applyCors(auth.response)
+  const user = auth.session.user as any
+  const userId = user.id as string
+  const isAdmin = (user.role || "user") === "admin"
   const ip = getClientIp(req)
   const limiter = rateLimit(`inventory_post:${ip}`, 20, 60 * 1000)
   if (!limiter.ok) {
@@ -93,6 +152,7 @@ export async function POST(req: Request) {
     const data = parsed.data.item
     await prisma.inventoryItem.create({
       data: {
+        vendorId: isAdmin ? null : userId,
         name: data.name.trim(),
         price: data.price,
         brand: data.brand ?? null,
@@ -111,13 +171,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid payload" }, { status: 400, headers: corsHeaders })
   }
 
-  const newItems = await prisma.inventoryItem.findMany({ orderBy: { createdAt: "desc" } })
+  const newItems = await formatInventoryItems()
   return Response.json({ items: newItems }, { headers: corsHeaders })
 }
 
 export async function PATCH(req: Request) {
-  const auth = await requireAdmin()
+  const auth = await requireRole(["admin", "vendor"])
   if (!auth.ok) return applyCors(auth.response)
+  const user = auth.session.user as any
+  const userId = user.id as string
+  const isAdmin = (user.role || "user") === "admin"
   const ip = getClientIp(req)
   const limiter = rateLimit(`inventory_patch:${ip}`, 40, 60 * 1000)
   if (!limiter.ok) {
@@ -141,13 +204,19 @@ export async function PATCH(req: Request) {
     return Response.json({ error: "No updates provided" }, { status: 400, headers: corsHeaders })
   }
 
-  const updated = await prisma.inventoryItem.update({ where: { id }, data })
+  const existing = await findScopedInventoryItem(id, userId, isAdmin)
+  if (!existing) {
+    return Response.json({ error: "Product not found or not editable" }, { status: 404, headers: corsHeaders })
+  }
+
+  await prisma.inventoryItem.update({ where: { id }, data })
+  const updated = (await formatInventoryItems()).find((item) => item.id === id)
   await logAuditEvent({
     actor: auth.session.user,
     action: "inventory.update",
     entityType: "InventoryItem",
     entityId: id,
-    metadata: { name: updated.name }
+    metadata: { name: updated?.name || existing.name }
   })
   return Response.json({ item: updated }, { headers: corsHeaders })
 }

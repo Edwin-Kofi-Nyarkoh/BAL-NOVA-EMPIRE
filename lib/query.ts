@@ -142,6 +142,8 @@ export type RiderAdminRow = {
 export type SystemSettingsResponse = {
   settings?: {
     dispatchRadiusKm?: number | null
+    dispatchPolygon?: string | null
+    mapProvider?: string | null
   } | null
 }
 

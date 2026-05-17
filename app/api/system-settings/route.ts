@@ -5,7 +5,9 @@ import { logAuditEvent } from "@/lib/server/audit"
 import { z } from "zod"
 
 const settingsSchema = z.object({
-  dispatchRadiusKm: z.coerce.number().min(0.1).max(500).optional()
+  dispatchRadiusKm: z.coerce.number().min(0.1).max(500).optional(),
+  dispatchPolygon: z.string().max(4000).optional(),
+  mapProvider: z.string().max(40).optional()
 })
 
 export async function GET() {
@@ -28,16 +30,16 @@ export async function PUT(req: Request) {
   if (!parsed.success) {
     return Response.json({ error: "Invalid settings payload" }, { status: 400 })
   }
-  const { dispatchRadiusKm } = parsed.data
+  const { dispatchRadiusKm, dispatchPolygon, mapProvider } = parsed.data
 
   const existing = await prisma.systemSettings.findFirst()
   const settings = existing
     ? await prisma.systemSettings.update({
         where: { id: existing.id },
-        data: { dispatchRadiusKm }
+        data: { dispatchRadiusKm, dispatchPolygon, mapProvider }
       })
     : await prisma.systemSettings.create({
-        data: { dispatchRadiusKm }
+        data: { dispatchRadiusKm, dispatchPolygon, mapProvider }
       })
 
   await logAuditEvent({
@@ -45,7 +47,7 @@ export async function PUT(req: Request) {
     action: "system_settings.update",
     entityType: "SystemSettings",
     entityId: settings.id,
-    metadata: { dispatchRadiusKm }
+    metadata: { dispatchRadiusKm, dispatchPolygon, mapProvider }
   })
 
   return Response.json({ settings })

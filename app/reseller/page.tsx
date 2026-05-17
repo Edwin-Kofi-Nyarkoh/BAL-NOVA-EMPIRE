@@ -18,6 +18,7 @@ import { cn, formatCurrency } from "@/lib/utils"
 import { getJSON, postJSON, requestJSON } from "@/lib/sync"
 import { LogoutButton } from "@/components/logout-button"
 import { useDialog } from "@/components/ui/dialog-service"
+import Link from "next/link"
 
 type ShopItem = {
   id: string
@@ -48,6 +49,7 @@ export default function ResellerPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [orders, setOrders] = useState<Order[]>([])
+  const [marketItems, setMarketItems] = useState<ShopItem[]>([])
   const [shop, setShop] = useState<ShopItem[]>([])
   const [team, setTeam] = useState<{ id?: string; name: string; role: string }[]>([])
   const [brand, setBrand] = useState<Brand>({ name: "", tagline: "Powered by Bal Nova" })
@@ -56,6 +58,8 @@ export default function ResellerPage() {
   const [aiAdvice, setAiAdvice] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [isDark, setIsDark] = useState(false)
+  const [withdrawMode, setWithdrawMode] = useState<"manual" | "automatic">("manual")
+  const [withdrawSchedule, setWithdrawSchedule] = useState<"daily" | "weekly" | "monthly">("weekly")
 
   useEffect(() => {
     void syncSettings()
@@ -65,6 +69,7 @@ export default function ResellerPage() {
 
     void syncOrders()
     void syncInventory()
+    void syncShop()
     void syncBrand()
     void syncTeam()
   }, [])
@@ -77,12 +82,17 @@ export default function ResellerPage() {
 
   async function syncInventory() {
     const data = await getJSON<{ items: ShopItem[] }>("/api/inventory", { items: [] })
-    setShop((Array.isArray(data.items) ? data.items : []).map((p: any) => ({
+    setMarketItems((Array.isArray(data.items) ? data.items : []).map((p: any) => ({
       id: p.id,
       name: p.name,
       price: p.price,
       sellingPrice: p.price
     })))
+  }
+
+  async function syncShop() {
+    const data = await getJSON<{ items?: ShopItem[] }>("/api/reseller/shop", {})
+    setShop(Array.isArray(data.items) ? data.items : [])
   }
 
   async function syncBrand() {
@@ -107,8 +117,17 @@ export default function ResellerPage() {
   }
 
   async function syncSettings() {
-    const data = await getJSON<{ settings?: { apiKey?: string; theme?: string } }>("/api/settings", {})
+    const data = await getJSON<{
+      settings?: {
+        apiKey?: string
+        theme?: string
+        resellerWithdrawMode?: "manual" | "automatic"
+        resellerWithdrawSchedule?: "daily" | "weekly" | "monthly"
+      }
+    }>("/api/settings", {})
     if (data.settings?.apiKey) setApiKey(data.settings.apiKey)
+    if (data.settings?.resellerWithdrawMode) setWithdrawMode(data.settings.resellerWithdrawMode)
+    if (data.settings?.resellerWithdrawSchedule) setWithdrawSchedule(data.settings.resellerWithdrawSchedule)
     if (data.settings?.theme) {
       const dark = data.settings.theme === "dark"
       setIsDark(dark)
@@ -118,6 +137,13 @@ export default function ResellerPage() {
 
   const revenue = useMemo(() => orders.reduce((sum, o) => sum + o.price, 0), [orders])
   const credits = useMemo(() => Math.round(revenue / 10), [revenue])
+  const weeklyBars = useMemo(() => {
+    const bars = new Array(7).fill(0)
+    for (const order of orders) {
+      bars[new Date(order.createdAt).getDay()] += order.price
+    }
+    return bars
+  }, [orders])
 
   function toggleTheme() {
     const next = !isDark
@@ -127,14 +153,42 @@ export default function ResellerPage() {
     void requestJSON("/api/settings", { theme: next ? "dark" : "light" }, "PUT", {})
   }
 
-  async function addShopItem() {
-    const name = await dialog.prompt("Item name", { placeholder: "Item name" })
-    if (!name) return
-    const priceRaw = await dialog.prompt("Selling price (GHS)", { placeholder: "0" })
-    const price = parseFloat(priceRaw || "0")
-    const newItem: ShopItem = { id: `RS-${Date.now()}`, name, price, sellingPrice: price }
-    setShop((prev) => [newItem, ...prev])
-    void postJSON("/api/inventory", { item: newItem }, { items: [] })
+  function saveShop(next: ShopItem[]) {
+    setShop(next)
+  }
+
+  async function importFromMarket(item: ShopItem) {
+    const profitRaw = await dialog.prompt("Set your profit margin", { placeholder: "0", defaultValue: "0" })
+    if (profitRaw === null) return
+    const profit = Math.max(0, Number(profitRaw || 0))
+    const result = await postJSON<{ item?: ShopItem }>(
+      "/api/reseller/shop",
+      {
+        item: {
+          sourceItemId: item.id,
+          name: item.name,
+          price: item.price,
+          myProfit: profit,
+          sellingPrice: item.price + profit
+        }
+      },
+      {}
+    )
+    if (result.item) await syncShop()
+  }
+
+  function removeShopItem(id: string) {
+    void requestJSON(`/api/reseller/shop/${id}`, {}, "DELETE", {}).then(() => syncShop())
+  }
+
+  function updateWithdrawMode(next: "manual" | "automatic") {
+    setWithdrawMode(next)
+    void requestJSON("/api/settings", { resellerWithdrawMode: next }, "PUT", {})
+  }
+
+  function updateWithdrawSchedule(next: "daily" | "weekly" | "monthly") {
+    setWithdrawSchedule(next)
+    void requestJSON("/api/settings", { resellerWithdrawSchedule: next }, "PUT", {})
   }
 
   async function addTeam() {
@@ -159,6 +213,7 @@ export default function ResellerPage() {
   async function importLegacyResellerData() {
     const legacyBrand = safeParse<Brand>("balnova_reseller_brand", { name: "", tagline: "" })
     const legacyTeam = safeParse<{ name: string; role: string }[]>("balnova_reseller_team", [])
+    const legacyShop = safeParse<ShopItem[]>("balnova_reseller_shop", [])
     const legacyTier = parseInt(localStorage.getItem("balnova_reseller_tier") || "1", 10)
     const legacyApiKey = localStorage.getItem("gemini_api_key") || ""
     const legacyTheme = localStorage.getItem("reseller_theme") || ""
@@ -175,9 +230,29 @@ export default function ResellerPage() {
       }
     }
 
+    for (const item of legacyShop) {
+      if (item?.name) {
+        await postJSON(
+          "/api/reseller/shop",
+          {
+            item: {
+              sourceItemId: item.id,
+              name: item.name,
+              price: item.price,
+              myProfit: item.myProfit || 0,
+              sellingPrice: item.sellingPrice || item.price,
+              myCategory: item.myCategory || null
+            }
+          },
+          {}
+        )
+      }
+    }
+
     await syncBrand()
     await syncTeam()
     await syncSettings()
+    await syncShop()
   }
 
   const navItems: { key: TabKey; label: string; icon: React.ReactNode }[] = [
@@ -198,8 +273,10 @@ export default function ResellerPage() {
         )}
       >
         <div className="p-6 border-b border-white/10">
-          <h1 className="font-bold text-xl tracking-wide">{brand.name}</h1>
-          <p className="text-xs text-myamber/80">{brand.tagline}</p>
+          <Link href="/" className="block">
+            <h1 className="font-bold text-xl tracking-wide">{brand.name}</h1>
+            <p className="text-xs text-myamber/80">{brand.tagline}</p>
+          </Link>
           <div className="text-xs text-gray-300 mt-2">Tier {tier}</div>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
@@ -248,7 +325,7 @@ export default function ResellerPage() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6 scroll-smooth">
           {activeTab === "dashboard" ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -263,6 +340,56 @@ export default function ResellerPage() {
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
                   <div className="text-xs text-gray-400 uppercase">Revenue</div>
                   <div className="text-2xl font-bold">{formatCurrency(revenue)}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-gray-400 uppercase">Reseller Graph</div>
+                      <div className="text-sm text-gray-500">Weekly revenue movement</div>
+                    </div>
+                    <div className="text-xs font-bold text-myamber">Live</div>
+                  </div>
+                  <div className="mt-5 grid grid-cols-7 items-end gap-2 h-28">
+                    {weeklyBars.map((value, index) => (
+                      <div key={index} className="rounded-t bg-myamber/80" style={{ height: `${Math.max(10, value / 4)}px` }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
+                  <div className="text-xs text-gray-400 uppercase">Structured Withdrawal</div>
+                  <div className="mt-4 flex gap-2">
+                    {(["manual", "automatic"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => updateWithdrawMode(mode)}
+                        className={cn(
+                          "rounded-full px-3 py-2 text-xs font-bold border capitalize",
+                          withdrawMode === mode ? "border-myamber bg-myamber/10 text-myamber" : "border-gray-200 dark:border-gray-700"
+                        )}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    {(["daily", "weekly", "monthly"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => updateWithdrawSchedule(mode)}
+                        className={cn(
+                          "rounded-full px-3 py-2 text-xs font-bold border capitalize",
+                          withdrawSchedule === mode ? "border-myamber bg-myamber/10 text-myamber" : "border-gray-200 dark:border-gray-700"
+                        )}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-gray-500">
+                    Withdrawals run only when reseller balances are settled and no order is flagged for review.
+                  </p>
                 </div>
               </div>
               <div className="bg-gradient-to-r from-myblue to-blue-900 rounded-xl p-6 text-white shadow-lg">
@@ -284,6 +411,29 @@ export default function ResellerPage() {
                   {aiAdvice || "Click Generate to analyze your reseller performance."}
                 </div>
               </div>
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold">Global Market</h3>
+                    <p className="text-xs text-gray-500">Import approved items into your shop.</p>
+                  </div>
+                  <div className="text-xs font-bold text-myamber">{marketItems.length} items</div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {marketItems.slice(0, 6).map((item) => (
+                    <div key={item.id} className="rounded-lg border border-gray-100 dark:border-gray-700 p-3">
+                      <div className="font-bold text-sm">{item.name}</div>
+                      <div className="text-xs text-gray-500">{formatCurrency(item.price)}</div>
+                      <button
+                        onClick={() => importFromMarket(item)}
+                        className="mt-3 text-xs font-bold bg-myamber text-myblue px-3 py-2 rounded"
+                      >
+                        Add to My Shop
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -291,15 +441,40 @@ export default function ResellerPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold">My Shop</h3>
-                <button onClick={addShopItem} className="text-xs font-bold bg-myamber text-myblue px-3 py-2 rounded">
-                  <Plus className="w-3 h-3 inline-block mr-1" /> Add Item
-                </button>
+                <div className="text-xs text-gray-500">Use Global Market to add products here.</div>
               </div>
+              {shop.length === 0 ? (
+                <div className="text-sm text-gray-500">No items in your shop yet.</div>
+              ) : null}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {shop.map((s) => (
                   <div key={s.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
                     <div className="font-bold">{s.name}</div>
+                    <div className="text-xs text-gray-500">Base: {formatCurrency(s.price)}</div>
                     <div className="text-sm text-myamber font-bold">{formatCurrency(s.sellingPrice || s.price)}</div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          const profitRaw = await dialog.prompt("Update profit margin", {
+                            defaultValue: String(s.myProfit || 0)
+                          })
+                          if (profitRaw === null) return
+                          const profit = Math.max(0, Number(profitRaw || 0))
+                          void requestJSON(
+                            `/api/reseller/shop/${s.id}`,
+                            { myProfit: profit, sellingPrice: s.price + profit },
+                            "PATCH",
+                            {}
+                          ).then(() => syncShop())
+                        }}
+                        className="text-xs font-bold text-myamber"
+                      >
+                        Edit margin
+                      </button>
+                      <button onClick={() => removeShopItem(s.id)} className="text-xs font-bold text-red-500">
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
